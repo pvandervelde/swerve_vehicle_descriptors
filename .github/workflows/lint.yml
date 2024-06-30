@@ -58,16 +58,18 @@ jobs:
           args: --all-features
           name: Clippy Output
 
-  verify-semver:
-    runs-on: ubuntu-latest
+  # cargo-semver-checks-action doesn't currently support specifying a base version manually.
+  #
+  # verify-semver:
+  #   runs-on: ubuntu-latest
 
-    steps:
-      - name: Set up Rust
-        uses: actions/checkout@v2
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-      - name: Check semver
-        uses: obi1kenobi/cargo-semver-checks-action@48f4ef7da6d907d69d18249e0ba79aa98c61b9db
+  #   steps:
+  #     - name: Set up Rust
+  #       uses: actions/checkout@v2
+  #     - name: Install Rust
+  #       uses: actions-rs/toolchain@v1
+  #       with:
+  #         profile: minimal
+  #         toolchain: stable
+  #     - name: Check semver
+  #       uses: obi1kenobi/cargo-semver-checks-action@48f4ef7da6d907d69d18249e0ba79aa98c61b9db
