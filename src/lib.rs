@@ -1,14 +1,9 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
+#![warn(missing_docs)]
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+//! Kinematic model definition for a swerve (4 wheel steering and 4 wheel drive) robot.
+//!
+//! Provides abstraction of the swerve robot geometry aimed at calculating the
+//! kinematics or dynamics of the robot for purposes of control.
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+/// Defines different number spaces
+pub mod number_space;
