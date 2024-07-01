@@ -116,11 +116,16 @@ impl RealNumberValueSpace for PeriodicBoundedCircularSpace {
     }
 
     fn normalize_value(&self, value: f64) -> f64 {
-        // reduce the angle to be no larger than the range
-        let normalized_value = value % self.range_size;
+        // reduce the angle to be [-range, range]
+        let mut normalized_value = value % self.range_size;
 
-        if self.range_start_in_radians != 0.0 {
-            normalized_value - 0.5 * self.range_size
+        // reduce the angle to the positive range
+        if (normalized_value < self.range_start_in_radians) {
+            normalized_value = (normalized_value + self.range_size) % self.range_size;
+        }
+
+        if (self.range_start_in_radians != 0.0) && (normalized_value > self.range_end_in_radians) {
+            normalized_value - self.range_size
         } else {
             normalized_value
         }
