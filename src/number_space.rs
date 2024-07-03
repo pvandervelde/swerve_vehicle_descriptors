@@ -138,7 +138,7 @@ impl RealNumberValueSpace for PeriodicBoundedCircularSpace {
         let mut diff = normalized_end - normalized_start;
 
         // Bring the range back to the limits of the range
-        diff = if diff >= self.range_end_in_radians {
+        diff = if diff > self.range_end_in_radians {
             diff - self.range_size
         } else {
             if diff < self.range_start_in_radians {
@@ -148,8 +148,13 @@ impl RealNumberValueSpace for PeriodicBoundedCircularSpace {
             }
         };
 
-        if diff >= 0.5 * self.range_size {
-            diff - self.range_size
+        let abs_diff = diff.abs();
+        if abs_diff > 0.5 * self.range_size {
+            if diff > 0.0 {
+                diff - self.range_size
+            } else {
+                diff + self.range_size
+            }
         } else {
             diff
         }

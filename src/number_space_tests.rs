@@ -323,7 +323,7 @@ fn test_periodic_bounded_circular_space_smallest_distance_between_values() {
         }
     ));
     assert!(space.smallest_distance_between_values(PI, 0.0).approx_eq(
-        PI,
+        -PI,
         F64Margin {
             ulps: 2,
             epsilon: 1e-6
