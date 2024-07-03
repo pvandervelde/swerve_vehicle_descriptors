@@ -12,7 +12,10 @@ pub enum NumberSpaceType {
 
     /// Indicates that a number space is an angular number space where numbers sequentially
     /// increase from the start angle to the start angle + 2 PI.
-    AngularLimited { start_angle_in_radians: f64 },
+    AngularLimited {
+        /// The starting angle in radians
+        start_angle_in_radians: f64,
+    },
 }
 
 /// Defines an abstraction over number spaces
@@ -120,7 +123,7 @@ impl RealNumberValueSpace for PeriodicBoundedCircularSpace {
         let mut normalized_value = value % self.range_size;
 
         // reduce the angle to the positive range
-        if (normalized_value < self.range_start_in_radians) {
+        if normalized_value < self.range_start_in_radians {
             normalized_value = (normalized_value + self.range_size) % self.range_size;
         }
 
