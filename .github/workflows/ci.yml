@@ -13,9 +13,6 @@ jobs:
   test:
     name: coverage
     runs-on: ubuntu-latest
-    container:
-      image: xd009642/tarpaulin:develop-nightly
-      options: --security-opt seccomp=unconfined
     steps:
       - uses: actions/checkout@v4
 
