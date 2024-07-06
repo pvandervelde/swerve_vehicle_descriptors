@@ -68,7 +68,7 @@ impl Display for ChangeID {
 }
 
 /// An inner struct that stores the state of the task scheduler queue
-struct TaskSchedulerQueueState {
+struct HardwareChangeProcessorState {
     /// The map of functions that the task scheduler will run when a notification
     /// of change comes through.
     ready_queue: HashMap<ChangeID, Box<dyn Fn() + Sync + Send>>,
@@ -77,7 +77,7 @@ struct TaskSchedulerQueueState {
     cancelled: bool,
 }
 
-impl TaskSchedulerQueueState {
+impl HardwareChangeProcessorState {
     /// Creates a new instance of the TaskScheduleQueueState structure.
     fn new() -> Self {
         Self {
@@ -98,7 +98,7 @@ pub struct HardwareChangeProcessor {
     background_runner: JoinHandle<()>,
 
     /// The queue containing the tasks that the background thread runs through
-    queue: Arc<Mutex<TaskSchedulerQueueState>>,
+    queue: Arc<Mutex<HardwareChangeProcessorState>>,
 }
 
 impl HardwareChangeProcessor {
@@ -139,7 +139,7 @@ impl HardwareChangeProcessor {
     pub fn new(processing_rate_in_hz: i32) -> Self {
         let (s, r) = crossbeam_channel::unbounded();
 
-        let queue = Arc::new(Mutex::new(TaskSchedulerQueueState::new()));
+        let queue = Arc::new(Mutex::new(HardwareChangeProcessorState::new()));
         let queue_copy = queue.clone();
 
         let background_runner = Self::create_thread(move || {
@@ -157,7 +157,7 @@ impl HardwareChangeProcessor {
 
     /// Runs the task processing.
     fn run(
-        queue: &Arc<Mutex<TaskSchedulerQueueState>>,
+        queue: &Arc<Mutex<HardwareChangeProcessorState>>,
         receiver: &Receiver<ChangeID>,
         rate_in_hz: i32,
     ) {
