@@ -14,8 +14,8 @@ use crossbeam_channel::{Receiver, Sender};
 use crate::Error;
 
 #[cfg(test)]
-#[path = "message_processing_tests.rs"]
-mod message_processing_tests;
+#[path = "change_notification_processing_tests.rs"]
+mod change_notification_processing_tests;
 
 /// The ChangeID counter value for the 'NONE' ID.
 static NONE_CHANGE_ID: usize = 0;
