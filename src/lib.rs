@@ -13,6 +13,9 @@ pub mod number_space;
 /// Provides types for the (asynchronous) processing of messages from/to hardware
 pub mod change_notification_processing;
 
+/// Provides the abstraction for the hardware in the robot.
+pub mod hardware;
+
 /// Defines the different errors for the swerve model crate.
 #[derive(Debug, Error, PartialEq)]
 #[non_exhaustive]
