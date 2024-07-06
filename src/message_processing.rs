@@ -89,7 +89,7 @@ impl TaskSchedulerQueueState {
 
 /// Defines a scheduler that waits for updates to tasks and executes a closure when it
 /// gets a notification of an update.
-pub struct TaskScheduler {
+pub struct HardwareChangeProcessor {
     /// The template of the channel sender that is used to notify the scheduler when
     /// there is an update for one of the tasks
     sender_template: Sender<TaskID>,
@@ -101,7 +101,7 @@ pub struct TaskScheduler {
     queue: Arc<Mutex<TaskSchedulerQueueState>>,
 }
 
-impl TaskScheduler {
+impl HardwareChangeProcessor {
     /// Adds a new task to the scheduler and returns the [TaskID] that is used to notify the
     /// scheduler that the task has an update waiting.
     ///
@@ -208,7 +208,7 @@ impl TaskScheduler {
     }
 }
 
-impl Drop for TaskScheduler {
+impl Drop for HardwareChangeProcessor {
     fn drop(&mut self) {
         {
             let mut arc_lock = self.queue.lock().unwrap_or_else(|err| err.into_inner());
