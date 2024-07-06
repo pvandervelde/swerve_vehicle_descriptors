@@ -124,7 +124,7 @@ impl TaskScheduler {
     }
 
     /// Creates the background task update thread
-    fn create_thread<F: Fn() + Send + 'static>(f: F) -> JoinHandle<()> {
+    fn create_thread<F: FnOnce() + Send + 'static>(f: F) -> JoinHandle<()> {
         thread::spawn(f)
     }
 
