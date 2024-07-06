@@ -17,26 +17,26 @@ use crate::Error;
 #[path = "message_processing_tests.rs"]
 mod message_processing_tests;
 
-/// The TaskID counter value for the 'NONE' ID.
-static NONE_TASK_ID: usize = 0;
+/// The ChangeID counter value for the 'NONE' ID.
+static NONE_CHANGE_ID: usize = 0;
 
-/// Atomic counter for TaskID instances
+/// Atomic counter for ChangeID instances
 /// The counter starts at 1 because 0 is reserved for the 'NONE' ID.
-static TASK_ID_COUNTER: AtomicUsize = AtomicUsize::new(1);
+static CHANGE_ID_COUNTER: AtomicUsize = AtomicUsize::new(1);
 
-/// Defines a unique ID for task types
+/// Defines a unique ID for change types
 ///
 /// - Can be cloned safely
 /// - Can be created safely across many threads
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct TaskID {
+pub struct ChangeID {
     /// The internal value that forms the actual ID. This is set in a
     /// thread-safe maner
     /// Based on this StackOverflow answer: https://stackoverflow.com/a/32936288/539846
     id: usize,
 }
 
-impl TaskID {
+impl ChangeID {
     /// Create a reference for the current ID.
     pub fn as_ref(&self) -> &Self {
         &self
@@ -44,26 +44,26 @@ impl TaskID {
 
     /// Returns a value indicating if the given ID is the [none] ID.
     pub fn is_none(&self) -> bool {
-        self.id == NONE_TASK_ID
+        self.id == NONE_CHANGE_ID
     }
 
     /// Create a new ID in a thread safe manner.
     pub fn new() -> Self {
         Self {
-            id: TASK_ID_COUNTER.fetch_add(1, Ordering::SeqCst),
+            id: CHANGE_ID_COUNTER.fetch_add(1, Ordering::SeqCst),
         }
     }
 
-    /// Returns the TaskID that doesn't belong to any FrameElement. Can be used to initialize
+    /// Returns the ChangeID that doesn't belong to any FrameElement. Can be used to initialize
     /// IDs that are unknown.
     pub fn none() -> Self {
-        Self { id: NONE_TASK_ID }
+        Self { id: NONE_CHANGE_ID }
     }
 }
 
-impl Display for TaskID {
+impl Display for ChangeID {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "TaskID [{}]", self.id)
+        write!(f, "ChangeID [{}]", self.id)
     }
 }
 
@@ -71,7 +71,7 @@ impl Display for TaskID {
 struct TaskSchedulerQueueState {
     /// The map of functions that the task scheduler will run when a notification
     /// of change comes through.
-    ready_queue: HashMap<TaskID, Box<dyn Fn() + Sync + Send>>,
+    ready_queue: HashMap<ChangeID, Box<dyn Fn() + Sync + Send>>,
 
     /// A flag indicating whether or not the task scheduler jobs are being cancelled.
     cancelled: bool,
@@ -92,7 +92,7 @@ impl TaskSchedulerQueueState {
 pub struct HardwareChangeProcessor {
     /// The template of the channel sender that is used to notify the scheduler when
     /// there is an update for one of the tasks
-    sender_template: Sender<TaskID>,
+    sender_template: Sender<ChangeID>,
 
     /// The thread handle for the background update thread
     background_runner: JoinHandle<()>,
@@ -102,7 +102,7 @@ pub struct HardwareChangeProcessor {
 }
 
 impl HardwareChangeProcessor {
-    /// Adds a new task to the scheduler and returns the [TaskID] that is used to notify the
+    /// Adds a new task to the scheduler and returns the [ChangeID] that is used to notify the
     /// scheduler that the task has an update waiting.
     ///
     /// ## Parameters
@@ -111,8 +111,8 @@ impl HardwareChangeProcessor {
     pub fn add(
         &self,
         closure: Box<dyn Fn() + Sync + Send>,
-    ) -> Result<(Sender<TaskID>, TaskID), Error> {
-        let result = TaskID::new();
+    ) -> Result<(Sender<ChangeID>, ChangeID), Error> {
+        let result = ChangeID::new();
         {
             let guard = self.queue.lock();
 
@@ -130,8 +130,8 @@ impl HardwareChangeProcessor {
 
     /// Creates a new [TaskScheduler] instance
     ///
-    /// This creates a new background thread that waits for [TaskID]s to be received. Once a
-    /// [TaskID] is received
+    /// This creates a new background thread that waits for [ChangeID]s to be received. Once a
+    /// [ChangeID] is received
     ///
     /// ## Parameters
     ///
@@ -158,7 +158,7 @@ impl HardwareChangeProcessor {
     /// Runs the task processing.
     fn run(
         queue: &Arc<Mutex<TaskSchedulerQueueState>>,
-        receiver: &Receiver<TaskID>,
+        receiver: &Receiver<ChangeID>,
         rate_in_hz: i32,
     ) {
         let sleep_time_in_millis = ((1.0 / (rate_in_hz as f64)) * 1000.0) as u64;

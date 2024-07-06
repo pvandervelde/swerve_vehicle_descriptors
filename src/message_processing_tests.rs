@@ -3,7 +3,7 @@ use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use std::time::Duration;
 
-// TaskID
+// ChangeID
 
 #[test]
 fn when_creating_new_ids_should_be_unique() {
@@ -14,7 +14,7 @@ fn when_creating_new_ids_should_be_unique() {
     // Arrange
     let mut ids = Vec::with_capacity(count);
     for _ in 0..count {
-        ids.push(TaskID::new());
+        ids.push(ChangeID::new());
     }
 
     // Assert
@@ -34,11 +34,11 @@ fn when_creating_new_ids_should_never_match_the_none_id() {
     // Arrange
     let mut ids = Vec::with_capacity(count);
     for _ in 0..count {
-        ids.push(TaskID::new());
+        ids.push(ChangeID::new());
     }
 
     // Assert
-    let none = TaskID::none();
+    let none = ChangeID::none();
     assert!(none.is_none());
 
     for i in 0..count - 1 {
@@ -50,7 +50,7 @@ fn when_creating_new_ids_should_never_match_the_none_id() {
 
 #[test]
 fn when_comparing_id_with_itself_should_be_equal() {
-    let id = TaskID::new();
+    let id = ChangeID::new();
     let copy = id.clone();
 
     assert_eq!(id, copy)
@@ -103,7 +103,7 @@ fn test_task_execution_with_unregistered_task() {
     let (sender, _) = scheduler.add(task).unwrap();
 
     // Notify the scheduler of the new task
-    let unregistered_task = TaskID::new();
+    let unregistered_task = ChangeID::new();
     sender.send(unregistered_task).unwrap();
 
     // Allow some time for the task to be processed
