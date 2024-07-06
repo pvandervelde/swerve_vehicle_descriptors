@@ -143,8 +143,8 @@ impl TaskScheduler {
         let queue_copy = queue.clone();
 
         let background_runner = Self::create_thread(move || {
-            let internal_queue = queue_copy.clone();
-            let receiver = r.clone();
+            let internal_queue = &queue_copy;
+            let receiver = &r;
             Self::run(internal_queue, receiver, processing_rate_in_hz);
         });
 
@@ -157,8 +157,8 @@ impl TaskScheduler {
 
     /// Runs the task processing.
     fn run(
-        queue: Arc<Mutex<TaskSchedulerQueueState>>,
-        receiver: Receiver<TaskID>,
+        queue: &Arc<Mutex<TaskSchedulerQueueState>>,
+        receiver: &Receiver<TaskID>,
         rate_in_hz: i32,
     ) {
         let sleep_time_in_millis = ((1.0 / (rate_in_hz as f64)) * 1000.0) as u64;
