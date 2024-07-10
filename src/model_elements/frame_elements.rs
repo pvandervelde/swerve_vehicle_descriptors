@@ -136,11 +136,6 @@ pub struct ReferenceFrame {
 }
 
 impl ReferenceFrame {
-    /// Create a reference for the current element.
-    pub fn as_ref(&self) -> &ReferenceFrame {
-        &self
-    }
-
     /// Indicates what type of degree-of-freedom the current element has, if any.  Is one of
     /// - Static
     /// - Rotational / Revolute around one of the axes
