@@ -157,5 +157,5 @@ pub trait HardwareActuator {
     /// Stores the notification function for updating the software actuator
     /// and the [ChangeID] that informs the software actuator which hardware
     /// actuator has been updated.
-    fn on_change(id: ChangeID, notifier: Sender<ChangeID>);
+    fn on_change(&mut self, id: ChangeID, notifier: Sender<ChangeID>);
 }

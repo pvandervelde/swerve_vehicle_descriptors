@@ -5,7 +5,7 @@ use crate::{change_notification_processing::ChangeID, number_space::NumberSpaceT
 use super::joint_state::{JointState, JointStateRange};
 
 /// Defines the interface for hardware that senses the state of a robot joint element.
-pub trait JointSensorInterface {
+pub trait HardwareSensor {
     /// Returns the [Receiver] that is used to receive the current [ActuatorState]
     /// and the currently available minimum and maximum rate of change.
     fn get_current_state_receiver(&self) -> Result<Receiver<JointState>, Error>;
@@ -19,5 +19,5 @@ pub trait JointSensorInterface {
     /// Stores the notification function for updating the software actuator
     /// and the [ChangeID] that informs the software actuator which hardware
     /// actuator has been updated.
-    fn on_change(id: ChangeID, notifier: Sender<ChangeID>);
+    fn on_change(&mut self, id: ChangeID, notifier: Sender<ChangeID>);
 }
