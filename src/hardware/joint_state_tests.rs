@@ -10,9 +10,9 @@ fn test_new_joint_state() {
     let joint_state = JointState::new(position, velocity, acceleration, jerk);
 
     assert_eq!(joint_state.get_position(), position);
-    assert_eq!(joint_state.get_velocity(), velocity);
-    assert_eq!(joint_state.get_acceleration(), acceleration);
-    assert_eq!(joint_state.get_jerk(), jerk);
+    assert_eq!(*joint_state.get_velocity(), velocity);
+    assert_eq!(*joint_state.get_acceleration(), acceleration);
+    assert_eq!(*joint_state.get_jerk(), jerk);
 }
 
 #[test]
@@ -24,12 +24,12 @@ fn test_joint_state_range_new() {
 
     assert_eq!(range.get_minimum_position(), 0.0);
     assert_eq!(range.get_maximum_position(), 100.0);
-    assert_eq!(range.get_minimum_velocity(), Some(0.0));
-    assert_eq!(range.get_maximum_velocity(), Some(50.0));
-    assert_eq!(range.get_minimum_acceleration(), Some(0.0));
-    assert_eq!(range.get_maximum_acceleration(), Some(20.0));
-    assert_eq!(range.get_minimum_jerk(), Some(0.0));
-    assert_eq!(range.get_maximum_jerk(), Some(10.0));
+    assert_eq!(*range.get_minimum_velocity(), Some(0.0));
+    assert_eq!(*range.get_maximum_velocity(), Some(50.0));
+    assert_eq!(*range.get_minimum_acceleration(), Some(0.0));
+    assert_eq!(*range.get_maximum_acceleration(), Some(20.0));
+    assert_eq!(*range.get_minimum_jerk(), Some(0.0));
+    assert_eq!(*range.get_maximum_jerk(), Some(10.0));
 }
 
 #[test]

@@ -19,7 +19,7 @@ pub enum NumberSpaceType {
 }
 
 /// Defines an abstraction over number spaces
-pub(crate) trait RealNumberValueSpace {
+pub trait RealNumberValueSpace {
     /// Returns all possible distances between two values in the space.
     ///
     /// For unbounded value spaces there will only be one distance, but for bounded value spaces
