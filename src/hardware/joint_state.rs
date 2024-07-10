@@ -13,6 +13,7 @@ mod joint_state_tests;
 /// All values are assumed to be in the range of the [minimum, maximum] value
 /// for the joint. These minimum and maximum values are specified by the
 /// [JointStateRange].
+#[derive(Clone, Debug, PartialEq)]
 pub struct JointState {
     /// The position of the joint.
     position: f64,
@@ -73,6 +74,7 @@ impl JointState {
 
 /// Stores the maximum and minimum values for the [JointState] of an
 /// Sensor or Actuator.
+#[derive(Debug)]
 pub struct JointStateRange {
     /// The minimum values of the actuator state.
     minimum: JointState,
