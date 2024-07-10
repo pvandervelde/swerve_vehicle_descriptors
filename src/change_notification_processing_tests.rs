@@ -69,11 +69,11 @@ fn test_task_addition_and_execution() {
     let executed_flag_clone = executed_flag.clone();
 
     // Add a task to the scheduler
-    let task = Box::new(move || {
+    let task = move || {
         executed_flag_clone.store(true, Ordering::SeqCst);
-    });
+    };
 
-    let (sender, task_id) = scheduler.add(task).unwrap();
+    let (sender, task_id) = scheduler.add(Box::new(task)).unwrap();
 
     // Notify the scheduler of the new task
     sender.send(task_id).unwrap();
@@ -96,11 +96,11 @@ fn test_task_execution_with_unregistered_task() {
     let executed_flag_clone = executed_flag.clone();
 
     // Add a task to the scheduler
-    let task = Box::new(move || {
+    let task = move || {
         executed_flag_clone.store(true, Ordering::SeqCst);
-    });
+    };
 
-    let (sender, _) = scheduler.add(task).unwrap();
+    let (sender, _) = scheduler.add(Box::new(task)).unwrap();
 
     // Notify the scheduler of the new task
     let unregistered_task = ChangeID::new();
@@ -124,18 +124,19 @@ fn test_task_cancellation() {
     let executed_flag_clone = executed_flag.clone();
 
     // Add a task to the scheduler
-    let task = Box::new(move || {
+    let task = move || {
         executed_flag_clone.store(true, Ordering::SeqCst);
-    });
+    };
 
-    let (sender, task_id) = scheduler.add(task).unwrap();
+    let (sender, task_id) = scheduler.add(Box::new(task)).unwrap();
 
     // Cancel the scheduler
     drop(scheduler);
 
     // Notify the scheduler of the new task
     // This should not execute the task since the scheduler is cancelled
-    sender.send(task_id).unwrap();
+    let result = sender.send(task_id);
+    assert!(result.is_ok());
 
     // Allow some time to ensure the task is not processed
     std::thread::sleep(Duration::from_millis(200));
