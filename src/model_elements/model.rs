@@ -1100,19 +1100,15 @@ impl SwerveRobotModel {
         to: &FrameID,
     ) -> Result<Matrix4<f64>, Error> {
         if !self.reference_frames.has_element(from) {
-            return Err(Error::MissingFrameElement {
-                id: from.clone(),
-            });
+            return Err(Error::MissingFrameElement { id: from.clone() });
         }
 
         if !self.reference_frames.has_element(to) {
-            return Err(Error::MissingFrameElement {
-                id: to.clone(),
-            });
+            return Err(Error::MissingFrameElement { id: to.clone() });
         }
 
         if from == to {
-            return Ok(Matrix4::<f64>::identity())
+            return Ok(Matrix4::<f64>::identity());
         }
 
         // If 'to' is an ancestor then we can just calculate the stack
@@ -1128,7 +1124,10 @@ impl SwerveRobotModel {
         let invert_result = to_transform_to_body.try_inverse_mut();
         if !invert_result {
             // This really shouldn't happen because homogeneous transforms should be invertible. So now we're in trouble ....
-            return Err(Error::FailedToComputeTransform { from: self.get_body()?.clone(), to: to.clone() });
+            return Err(Error::FailedToComputeTransform {
+                from: self.get_body()?.clone(),
+                to: to.clone(),
+            });
         }
 
         Ok(from_transform_to_body * to_transform_to_body)
@@ -1149,21 +1148,21 @@ impl SwerveRobotModel {
     /// ## Errors
     ///
     /// * [Error::MissingFrameElement] - Returned when the [ReferenceFrame] is not part of the model
-    pub fn get_homogeneous_transform_to_ancestor(&self, from: &FrameID, to: &FrameID) -> Result<Matrix4<f64>, Error> {
+    pub fn get_homogeneous_transform_to_ancestor(
+        &self,
+        from: &FrameID,
+        to: &FrameID,
+    ) -> Result<Matrix4<f64>, Error> {
         if !self.reference_frames.has_element(from) {
-            return Err(Error::MissingFrameElement {
-                id: from.clone(),
-            });
+            return Err(Error::MissingFrameElement { id: from.clone() });
         }
 
         if !self.reference_frames.has_element(to) {
-            return Err(Error::MissingFrameElement {
-                id: to.clone(),
-            });
+            return Err(Error::MissingFrameElement { id: to.clone() });
         }
 
         if from == to {
-            return Ok(Matrix4::<f64>::identity())
+            return Ok(Matrix4::<f64>::identity());
         }
 
         let mut transform = Matrix4::<f64>::identity();
@@ -1212,7 +1211,7 @@ impl SwerveRobotModel {
 
         let is_body = self.reference_frames.is_body(starting_element)?;
         if is_body {
-            return Ok(Matrix4::<f64>::identity())
+            return Ok(Matrix4::<f64>::identity());
         }
 
         let reference_frame = self.reference_frames.get_element(starting_element)?;
@@ -1387,7 +1386,7 @@ impl SwerveRobotModel {
             };
 
             if parent == to {
-                return true
+                return true;
             }
 
             frame_id = parent;
@@ -1410,21 +1409,67 @@ impl SwerveRobotModel {
         }
     }
 
+    /// Returns a tuple that describes if the model is valid and if the model is not valid what the issues are.
+    ///
+    /// It is expected that the model meets the following conditions:
+    /// - At least 3 wheels
+    /// - Each wheel rotates around its y-axis
+    /// - Each wheel has exactly 1 steering element
+    /// - Each steering element rotates around its z-axis
     pub fn is_valid(&self) -> (bool, Vec<String>) {
-        // Validate that the model is valid. Return what isn't valid
-        //
-        // Validations:
-        // - There is at least 3 wheels
-        // - If there is a steering joint, then there must be one steering joint for each wheel
-        // - Each steering joint has a z-rotation. The steering xy-plane can be different than the body xy-plane
-        // - Each wheel has rotates in the xz-plane
-        // - There are an identical number of joints between each steering joint and the body
-        // - The joints between each steering joint and the body are the same type in the same order
-        // - There are an identical number of joints between each wheel and the steering joint
-        // -
-        todo!()
+        let mut result: Vec<String> = vec![];
 
-        foobar()
+        // There should be at least three wheels
+        let wheels_result = self.get_wheels();
+        if wheels_result.is_err() {
+            result.push(String::from(
+                "Swerve model needs at least 3 wheels. Found 0 wheels.",
+            ));
+            return (false, result);
+        }
+
+        let wheels = wheels_result.unwrap();
+        if wheels.len() < 3 {
+            result.push(format!(
+                "Swerve model needs at least 3 wheels. Found {} wheels.",
+                wheels.len()
+            ));
+        }
+
+        for w in wheels {
+            // Each wheel rotates in the xz-plane
+            let wheel_dof_result = self.get_frame_degree_of_freedom(w);
+            if wheel_dof_result.is_err() {
+                result.push(format!("Swerve model expects wheels to rotate around the y-axis. Wheel {} has no degrees of freedom", w))
+            } else {
+                let dof = wheel_dof_result.unwrap();
+                if dof != FrameDofType::RevoluteY {
+                    result.push(format!("Swerve model expects wheels to rotate around the y-axis. Steering joint {} has degree of freedom: {:#?}", w, dof));
+                }
+            }
+
+            // Each wheel should have one, and exactly one steering joint
+            let steering_joint_option = self.wheel_to_steering_frame.get(w);
+            if steering_joint_option.is_none() {
+                result.push(format!("Swerve model expects one steering frame for each wheel. Wheel {} does not have a steering frame", w));
+                continue;
+            }
+
+            let steering_joint = steering_joint_option.unwrap();
+
+            // Each steering joint has a z-rotation
+            let steering_joint_dof_result = self.get_frame_degree_of_freedom(steering_joint);
+            if steering_joint_dof_result.is_err() {
+                result.push(format!("Swerve model expects steering joints to rotate around the z-axis. Steering joint {} has no degrees of freedom", steering_joint));
+            } else {
+                let dof = steering_joint_dof_result.unwrap();
+                if dof != FrameDofType::RevoluteZ {
+                    result.push(format!("Swerve model expects steering joints to rotate around the z-axis. Steering joint {} has degree of freedom: {:#?}", steering_joint, dof));
+                }
+            }
+        }
+
+        (result.len() == 0, result)
     }
 
     /// Returns a value indicating if the given [FrameID] points to the world frame
