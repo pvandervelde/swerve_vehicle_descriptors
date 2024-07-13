@@ -4,7 +4,7 @@ use std::{
     fmt::Display,
     sync::{
         atomic::{AtomicUsize, Ordering},
-        Arc, Mutex, MutexGuard,
+        Arc, Mutex,
     },
 };
 

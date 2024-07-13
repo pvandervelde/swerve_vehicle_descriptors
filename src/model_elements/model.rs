@@ -466,7 +466,7 @@ impl KinematicTree {
 /// a single steering frame in the wheel-to-body chain of [ReferenceFrame] elements.
 /// Each steering frame should only link to exactly one wheel and each wheel should have
 /// exactly one steering frame.
-pub struct SwerveRobotModel {
+pub struct MotionModel {
     /// The [ChassisElement] instances that make up the model.
     chassis_elements: HashMap<FrameID, ChassisElement>,
 
@@ -491,7 +491,7 @@ pub struct SwerveRobotModel {
     joint_constraints: HashMap<FrameID, JointConstraint>,
 }
 
-impl SwerveRobotModel {
+impl MotionModel {
     /// Adds the chassis element that represents a non-actuated joint for the robot.
     ///
     /// It is assumed that the body is the first element to be added.
@@ -1516,7 +1516,7 @@ impl SwerveRobotModel {
         let mut result = Matrix4::<f64>::identity();
 
         let distance_moved = match actuator.get_value() {
-            Ok(v) => todo!(),
+            Ok(v) => v.get_position(),
             Err(_) => 0.0,
         };
         result[(0, 3)] = distance_moved;
@@ -1528,7 +1528,7 @@ impl SwerveRobotModel {
         let mut result = Matrix4::<f64>::identity();
 
         let distance_moved = match actuator.get_value() {
-            Ok(v) => todo!(),
+            Ok(v) => v.get_position(),
             Err(_) => 0.0,
         };
         result[(1, 3)] = distance_moved;
@@ -1540,7 +1540,7 @@ impl SwerveRobotModel {
         let mut result = Matrix4::<f64>::identity();
 
         let distance_moved = match actuator.get_value() {
-            Ok(v) => todo!(),
+            Ok(v) => v.get_position(),
             Err(_) => 0.0,
         };
         result[(2, 3)] = distance_moved;
@@ -1552,7 +1552,7 @@ impl SwerveRobotModel {
         let mut result = Matrix4::<f64>::identity();
 
         let distance_rotated = match actuator.get_value() {
-            Ok(v) => todo!(),
+            Ok(v) => v.get_position(),
             Err(_) => 0.0,
         };
 
@@ -1574,7 +1574,7 @@ impl SwerveRobotModel {
         let mut result = Matrix4::<f64>::identity();
 
         let distance_rotated = match actuator.get_value() {
-            Ok(v) => todo!(),
+            Ok(v) => v.get_position(),
             Err(_) => 0.0,
         };
 
@@ -1596,7 +1596,7 @@ impl SwerveRobotModel {
         let mut result = Matrix4::<f64>::identity();
 
         let distance_rotated = match actuator.get_value() {
-            Ok(v) => todo!(),
+            Ok(v) => v.get_position(),
             Err(_) => 0.0,
         };
 

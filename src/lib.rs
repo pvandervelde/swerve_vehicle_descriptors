@@ -5,6 +5,7 @@
 //! Provides abstraction of the swerve robot geometry aimed at calculating the
 //! kinematics or dynamics of the robot for purposes of control.
 
+use model_elements::frame_elements::FrameID;
 use thiserror::Error;
 
 /// Defines different number spaces
