@@ -1,7 +1,10 @@
 use std::{f64::consts::PI, time::Duration};
 
 use crossbeam_channel::{Receiver, Sender};
-use nalgebra::{Matrix3, Matrix4, Matrix6, RowVector4, Translation3, UnitQuaternion, Vector3};
+use float_cmp::{ApproxEq, F64Margin};
+use nalgebra::{
+    Matrix3, Matrix4, Matrix6, RowVector4, Translation3, UnitQuaternion, Vector3, Vector4,
+};
 
 use crate::{
     change_notification_processing::{ChangeID, HardwareChangeProcessor},
@@ -941,7 +944,7 @@ fn position_multipliers(relative_position: DriveModulePosition) -> (i32, i32, i3
     }
 }
 
-fn frame_angles_for(relative_position: DriveModulePosition) -> (f64, f64) {
+fn frame_angles_in_degrees_for(relative_position: DriveModulePosition) -> (f64, f64) {
     match relative_position {
         DriveModulePosition::LeftFront => (30.0, -30.0),
         DriveModulePosition::LeftRear => (150.0, -150.0),
@@ -991,12 +994,14 @@ fn add_actuated_joint_to_model<'a>(
     actuator: Actuator,
 ) -> Result<FrameID, Error> {
     let (mul_x, mul_y, mul_z) = position_multipliers(position);
-    let (angle, _) = frame_angles_for(position);
+    let (angle, _) = frame_angles_in_degrees_for(position);
+    let deg_to_rad = PI / 180.0;
 
     let name = "actuated".to_string();
     let position_relative_to_parent =
         Translation3::<f64>::new(1.0 * mul_x as f64, 0.5 * mul_y as f64, 0.0 * mul_z as f64);
-    let orientation_relative_to_parent = UnitQuaternion::<f64>::from_euler_angles(0.0, 0.0, angle);
+    let orientation_relative_to_parent =
+        UnitQuaternion::<f64>::from_euler_angles(0.0, 0.0, angle * deg_to_rad);
     let mass = 1.0;
     let center_of_mass = Vector3::<f64>::identity();
     let moment_of_inertia = Matrix3::<f64>::identity();
@@ -1043,12 +1048,14 @@ fn add_steering_to_model<'a>(
     actuator: Actuator,
 ) -> Result<FrameID, Error> {
     let (mul_x, mul_y, mul_z) = position_multipliers(position);
-    let (_, angle) = frame_angles_for(position);
+    let (_, angle) = frame_angles_in_degrees_for(position);
+    let deg_to_rad = PI / 180.0;
 
     let name = "steering".to_string();
     let position_relative_to_parent =
         Translation3::<f64>::new(0.25 * mul_x as f64, 0.0 * mul_y as f64, -0.1 * mul_z as f64);
-    let orientation_relative_to_parent = UnitQuaternion::<f64>::from_euler_angles(0.0, 0.0, angle);
+    let orientation_relative_to_parent =
+        UnitQuaternion::<f64>::from_euler_angles(0.0, 0.0, angle * deg_to_rad);
     let mass = 1.0;
     let center_of_mass = Vector3::<f64>::identity();
     let moment_of_inertia = Matrix3::<f64>::identity();
@@ -1073,12 +1080,14 @@ fn add_suspension_to_model(
     position: DriveModulePosition,
 ) -> Result<FrameID, Error> {
     let (mul_x, mul_y, mul_z) = position_multipliers(position);
-    let (angle, _) = frame_angles_for(position);
+    let (angle, _) = frame_angles_in_degrees_for(position);
+    let deg_to_rad = PI / 180.0;
 
     let name: String = "suspension".to_string();
     let position_relative_to_parent =
         Translation3::<f64>::new(1.0 * mul_x as f64, 0.5 * mul_y as f64, 0.0 * mul_z as f64);
-    let orientation_relative_to_parent = UnitQuaternion::<f64>::from_euler_angles(0.0, 0.0, angle);
+    let orientation_relative_to_parent =
+        UnitQuaternion::<f64>::from_euler_angles(0.0, 0.0, angle * deg_to_rad);
     let mass = 1.0;
     let center_of_mass = Vector3::<f64>::identity();
     let moment_of_inertia = Matrix3::<f64>::identity();
@@ -1389,7 +1398,6 @@ fn when_adding_static_chassis_element_it_should_store_the_element() {
 
     let result = model.add_static_chassis_element(
         name.clone(),
-        FrameDofType::PrismaticX,
         body_id.clone(),
         position_relative_to_parent,
         orientation_relative_to_parent,
@@ -1439,7 +1447,6 @@ fn when_adding_static_chassis_element_with_invalid_parent_it_should_error() {
 
     let result = model.add_static_chassis_element(
         name.clone(),
-        FrameDofType::PrismaticX,
         FrameID::new(),
         position_relative_to_parent,
         orientation_relative_to_parent,
@@ -1503,7 +1510,6 @@ fn when_adding_static_chassis_element_with_parent_wheel_it_should_error() {
 
     let result = model.add_static_chassis_element(
         name.clone(),
-        FrameDofType::PrismaticX,
         wheel_id.clone(),
         position_relative_to_parent,
         orientation_relative_to_parent,
@@ -1839,7 +1845,7 @@ fn when_adding_suspension_element_with_invalid_parent_it_should_error() {
         joint_constraint,
     );
 
-    assert!(result.is_ok());
+    assert!(result.is_err());
 }
 
 #[test]
@@ -1976,7 +1982,7 @@ fn when_adding_wheel_element_it_should_store_the_element() {
     assert!(degree_of_freedom_result.is_ok());
 
     let dof = degree_of_freedom_result.unwrap();
-    assert_eq!(FrameDofType::PrismaticX, dof);
+    assert_eq!(FrameDofType::RevoluteY, dof);
 
     let frame_result = model.get_reference_frame(&frame_id);
     assert!(frame_result.is_ok());
@@ -2184,255 +2190,6 @@ fn when_adding_wheel_element_without_steering_parent_it_should_error() {
 }
 
 #[test]
-fn when_checking_is_valid_with_different_joint_counts_it_should_fail() {
-    let mut model = MotionModel::new();
-    let body_id = add_body_to_model(&mut model).unwrap();
-
-    // Leg 1
-    let (sender1, receiver1) = crossbeam_channel::unbounded();
-    let (cmd_sender1, _) = crossbeam_channel::unbounded();
-    let mut hardware_actuator1 = MockHardwareActuator {
-        receiver: receiver1,
-        sender: sender1.clone(),
-        command_sender: cmd_sender1,
-        update_sender: None,
-        id: None,
-    };
-    let change_processor = Box::new(HardwareChangeProcessor::new(10));
-
-    let actuator1 = Actuator::new(&mut hardware_actuator1, &change_processor).unwrap();
-
-    let steering_id_leg1 = add_steering_to_model(
-        &mut model,
-        &body_id,
-        DriveModulePosition::LeftFront,
-        actuator1,
-    )
-    .unwrap();
-
-    let (wheel_sender1, wheel_receiver1) = crossbeam_channel::unbounded();
-    let (wheel_cmd_sender1, _) = crossbeam_channel::unbounded();
-    let mut wheel_hardware_actuator1 = MockHardwareActuator {
-        receiver: wheel_receiver1,
-        sender: wheel_sender1,
-        command_sender: wheel_cmd_sender1,
-        update_sender: None,
-        id: None,
-    };
-
-    let wheel_actuator1 = Actuator::new(&mut wheel_hardware_actuator1, &change_processor).unwrap();
-
-    let _ = add_wheel_to_model(&mut model, &steering_id_leg1, wheel_actuator1).unwrap();
-
-    // Leg 2
-    let suspension_id_leg2 =
-        add_suspension_to_model(&mut model, &body_id, DriveModulePosition::RightFront).unwrap();
-
-    let (sender2, receiver2) = crossbeam_channel::unbounded();
-    let (cmd_sender2, _) = crossbeam_channel::unbounded();
-    let mut hardware_actuator2 = MockHardwareActuator {
-        receiver: receiver2,
-        sender: sender2.clone(),
-        command_sender: cmd_sender2,
-        update_sender: None,
-        id: None,
-    };
-
-    let actuator2 = Actuator::new(&mut hardware_actuator2, &change_processor).unwrap();
-
-    let steering_id_leg2 = add_steering_to_model(
-        &mut model,
-        &suspension_id_leg2,
-        DriveModulePosition::RightFront,
-        actuator2,
-    )
-    .unwrap();
-
-    let (wheel_sender2, wheel_receiver2) = crossbeam_channel::unbounded();
-    let (wheel_cmd_sender2, _) = crossbeam_channel::unbounded();
-    let mut wheel_hardware_actuator2 = MockHardwareActuator {
-        receiver: wheel_receiver2,
-        sender: wheel_sender2,
-        command_sender: wheel_cmd_sender2,
-        update_sender: None,
-        id: None,
-    };
-
-    let wheel_actuator2 = Actuator::new(&mut wheel_hardware_actuator2, &change_processor).unwrap();
-
-    let _ = add_wheel_to_model(&mut model, &steering_id_leg2, wheel_actuator2).unwrap();
-
-    let results = model.is_valid();
-    assert!(!results.0);
-
-    // Add checks here
-    todo!()
-}
-
-#[test]
-fn when_checking_is_valid_with_different_joint_types_it_should_fail() {
-    let mut model = MotionModel::new();
-    let body_id = add_body_to_model(&mut model).unwrap();
-
-    // Leg 1
-    let (steering_sender, steering_receiver) = crossbeam_channel::unbounded();
-    let (steering_cmd_sender, _) = crossbeam_channel::unbounded();
-    let mut steering_hardware_actuator = MockHardwareActuator {
-        receiver: steering_receiver,
-        sender: steering_sender,
-        command_sender: steering_cmd_sender,
-        update_sender: None,
-        id: None,
-    };
-    let change_processor = Box::new(HardwareChangeProcessor::new(10));
-
-    let steering_actuator =
-        Actuator::new(&mut steering_hardware_actuator, &change_processor).unwrap();
-
-    let suspension_id_leg1 = add_actuated_joint_to_model(
-        &mut model,
-        &body_id,
-        DriveModulePosition::LeftFront,
-        FrameDofType::PrismaticZ,
-        steering_actuator,
-    )
-    .unwrap();
-
-    let (sender1, receiver1) = crossbeam_channel::unbounded();
-    let (cmd_sender1, _) = crossbeam_channel::unbounded();
-    let mut hardware_actuator1 = MockHardwareActuator {
-        receiver: receiver1,
-        sender: sender1.clone(),
-        command_sender: cmd_sender1,
-        update_sender: None,
-        id: None,
-    };
-    let change_processor = Box::new(HardwareChangeProcessor::new(10));
-
-    let actuator1 = Actuator::new(&mut hardware_actuator1, &change_processor).unwrap();
-
-    let steering_id_leg1 = add_steering_to_model(
-        &mut model,
-        &suspension_id_leg1,
-        DriveModulePosition::LeftFront,
-        actuator1,
-    )
-    .unwrap();
-
-    let (wheel_sender1, wheel_receiver1) = crossbeam_channel::unbounded();
-    let (wheel_cmd_sender1, _) = crossbeam_channel::unbounded();
-    let mut wheel_hardware_actuator1 = MockHardwareActuator {
-        receiver: wheel_receiver1,
-        sender: wheel_sender1,
-        command_sender: wheel_cmd_sender1,
-        update_sender: None,
-        id: None,
-    };
-
-    let wheel_actuator1 = Actuator::new(&mut wheel_hardware_actuator1, &change_processor).unwrap();
-
-    let _ = add_wheel_to_model(&mut model, &steering_id_leg1, wheel_actuator1).unwrap();
-
-    // Leg 2
-    let suspension_id_leg2 =
-        add_suspension_to_model(&mut model, &body_id, DriveModulePosition::RightFront).unwrap();
-
-    let (sender2, receiver2) = crossbeam_channel::unbounded();
-    let (cmd_sender2, _) = crossbeam_channel::unbounded();
-    let mut hardware_actuator2 = MockHardwareActuator {
-        receiver: receiver2,
-        sender: sender2.clone(),
-        command_sender: cmd_sender2,
-        update_sender: None,
-        id: None,
-    };
-
-    let actuator2 = Actuator::new(&mut hardware_actuator2, &change_processor).unwrap();
-
-    let steering_id_leg2 = add_steering_to_model(
-        &mut model,
-        &suspension_id_leg2,
-        DriveModulePosition::RightFront,
-        actuator2,
-    )
-    .unwrap();
-
-    let (wheel_sender2, wheel_receiver2) = crossbeam_channel::unbounded();
-    let (wheel_cmd_sender2, _) = crossbeam_channel::unbounded();
-    let mut wheel_hardware_actuator2 = MockHardwareActuator {
-        receiver: wheel_receiver2,
-        sender: wheel_sender2,
-        command_sender: wheel_cmd_sender2,
-        update_sender: None,
-        id: None,
-    };
-
-    let wheel_actuator2 = Actuator::new(&mut wheel_hardware_actuator2, &change_processor).unwrap();
-
-    let _ = add_wheel_to_model(&mut model, &steering_id_leg2, wheel_actuator2).unwrap();
-
-    let results = model.is_valid();
-    assert!(!results.0);
-
-    // Add checks here
-    todo!()
-}
-
-#[test]
-fn when_checking_is_valid_with_missing_steering_joint_it_should_fail() {
-    let mut model = MotionModel::new();
-    let body_id = add_body_to_model(&mut model).unwrap();
-
-    // Leg 1
-    let suspension_id_leg1 =
-        add_suspension_to_model(&mut model, &body_id, DriveModulePosition::LeftFront).unwrap();
-
-    let (sender1, receiver1) = crossbeam_channel::unbounded();
-    let (cmd_sender1, _) = crossbeam_channel::unbounded();
-    let mut hardware_actuator1 = MockHardwareActuator {
-        receiver: receiver1,
-        sender: sender1.clone(),
-        command_sender: cmd_sender1,
-        update_sender: None,
-        id: None,
-    };
-    let change_processor = Box::new(HardwareChangeProcessor::new(10));
-
-    let actuator1 = Actuator::new(&mut hardware_actuator1, &change_processor).unwrap();
-
-    let steering_id_leg1 = add_steering_to_model(
-        &mut model,
-        &suspension_id_leg1,
-        DriveModulePosition::LeftFront,
-        actuator1,
-    )
-    .unwrap();
-
-    let (wheel_sender, wheel_receiver) = crossbeam_channel::unbounded();
-    let (wheel_cmd_sender, _) = crossbeam_channel::unbounded();
-    let mut wheel_hardware_actuator = MockHardwareActuator {
-        receiver: wheel_receiver,
-        sender: wheel_sender,
-        command_sender: wheel_cmd_sender,
-        update_sender: None,
-        id: None,
-    };
-
-    let wheel_actuator = Actuator::new(&mut wheel_hardware_actuator, &change_processor).unwrap();
-
-    let _ = add_wheel_to_model(&mut model, &steering_id_leg1, wheel_actuator).unwrap();
-
-    // Leg 2
-    let _ = add_suspension_to_model(&mut model, &body_id, DriveModulePosition::RightFront).unwrap();
-
-    let results = model.is_valid();
-    assert!(!results.0);
-
-    // Add checks here
-    todo!()
-}
-
-#[test]
 fn when_checking_is_valid_with_missing_wheel_it_should_fail() {
     let mut model = MotionModel::new();
     let body_id = add_body_to_model(&mut model).unwrap();
@@ -2492,7 +2249,7 @@ fn when_checking_is_valid_with_missing_wheel_it_should_fail() {
 
     let actuator2 = Actuator::new(&mut hardware_actuator2, &change_processor).unwrap();
 
-    let _ = add_steering_to_model(
+    let steering_id_leg2 = add_steering_to_model(
         &mut model,
         &suspension_id_leg2,
         DriveModulePosition::RightFront,
@@ -2500,11 +2257,50 @@ fn when_checking_is_valid_with_missing_wheel_it_should_fail() {
     )
     .unwrap();
 
+    let (wheel_sender_2, wheel_receiver_2) = crossbeam_channel::unbounded();
+    let (wheel_cmd_sender_2, _) = crossbeam_channel::unbounded();
+    let mut wheel_hardware_actuator_2 = MockHardwareActuator {
+        receiver: wheel_receiver_2,
+        sender: wheel_sender_2,
+        command_sender: wheel_cmd_sender_2,
+        update_sender: None,
+        id: None,
+    };
+
+    let wheel_actuator_2 =
+        Actuator::new(&mut wheel_hardware_actuator_2, &change_processor).unwrap();
+
+    let _ = add_wheel_to_model(&mut model, &steering_id_leg2, wheel_actuator_2).unwrap();
+
+    // Leg 3
+    let suspension_id_leg3 =
+        add_suspension_to_model(&mut model, &body_id, DriveModulePosition::RightRear).unwrap();
+
+    let (sender3, receiver3) = crossbeam_channel::unbounded();
+    let (cmd_sender3, _) = crossbeam_channel::unbounded();
+    let mut hardware_actuator3 = MockHardwareActuator {
+        receiver: receiver3,
+        sender: sender3.clone(),
+        command_sender: cmd_sender3,
+        update_sender: None,
+        id: None,
+    };
+
+    let actuator3 = Actuator::new(&mut hardware_actuator3, &change_processor).unwrap();
+
+    let steering_id_leg3 = add_steering_to_model(
+        &mut model,
+        &suspension_id_leg3,
+        DriveModulePosition::RightRear,
+        actuator3,
+    )
+    .unwrap();
+
     let results = model.is_valid();
     assert!(!results.0);
 
-    // Add checks here
-    todo!()
+    assert_eq!(1, results.1.len());
+    assert_eq!(format!("Swerve model expects each steering joint to be connected to a wheel. Steering joint {} is not connected to a wheel.", steering_id_leg3), results.1[0]);
 }
 
 #[test]
@@ -2777,7 +2573,7 @@ fn when_getting_homogeneous_transform_to_body_with_multiple_elements_and_motion_
     // | sin(30) cos(30)  0.0 0.5 |
     // | 0.0     0.0      1.0 0.0 |
     // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
+    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
     let angle_rad = angle_deg * (PI / 180.0);
 
     #[rustfmt::skip]
@@ -2828,7 +2624,7 @@ fn when_getting_homogeneous_transform_to_body_with_multiple_elements_and_motion_
     // | sin(30) cos(30)  0.0 0.5 |
     // | 0.0     0.0      1.0 0.0 |
     // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
+    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
     let angle_rad = angle_deg * (PI / 180.0);
 
     #[rustfmt::skip]
@@ -2870,7 +2666,7 @@ fn when_getting_homogeneous_transform_to_body_with_multiple_elements_and_motion_
     // | sin(60) cos(60)  0.0 0.5 |
     // | 0.0     0.0      1.0 0.0 |
     // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
+    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
     let angle_rad = (angle_deg + 30.0) * (PI / 180.0);
 
     #[rustfmt::skip]
@@ -2955,7 +2751,7 @@ fn when_getting_homogeneous_transform_to_body_with_multiple_elements_and_no_moti
     // | sin(-30) cos(-30)  0.0 0.0 |
     // | 0.0      0.0       1.0 -0.1 |
     // | 0.0      0.0       0.0 1.0 |
-    let (_, angle_steering_deg) = frame_angles_for(DriveModulePosition::LeftFront);
+    let (_, angle_steering_deg) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
     let angle_steering_rad = (angle_steering_deg + 30.0) * (PI / 180.0);
 
     #[rustfmt::skip]
@@ -2970,7 +2766,7 @@ fn when_getting_homogeneous_transform_to_body_with_multiple_elements_and_no_moti
     // | sin(30) cos(30)  0.0 0.5 |
     // | 0.0     0.0      1.0 0.0 |
     // | 0.0     0.0      0.0 1.0 |
-    let (angle_suspension_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
+    let (angle_suspension_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
     let angle_suspension_rad = (angle_suspension_deg + 30.0) * (PI / 180.0);
 
     #[rustfmt::skip]
@@ -3029,7 +2825,7 @@ fn when_getting_homogeneous_transform_to_body_with_one_element_and_motion_it_sho
     // | sin(30) cos(30)  0.0 0.5 |
     // | 0.0     0.0      1.0 0.0 |
     // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
+    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
     let angle_rad = angle_deg * (PI / 180.0);
 
     #[rustfmt::skip]
@@ -3080,7 +2876,7 @@ fn when_getting_homogeneous_transform_to_body_with_one_element_and_motion_it_sho
     // | sin(60) cos(60)  0.0 0.5 |
     // | 0.0     0.0      1.0 0.0 |
     // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
+    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
     let angle_rad = (angle_deg + 30.0) * (PI / 180.0);
 
     #[rustfmt::skip]
@@ -3133,7 +2929,7 @@ fn when_getting_homogeneous_transform_to_body_with_one_element_and_motion_it_sho
     // | sin(30) cos(30)  0.0 0.5 |
     // | 0.0     0.0      1.0 0.0 |
     // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
+    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
     let angle_rad = (angle_deg + 30.0) * (PI / 180.0);
 
     #[rustfmt::skip]
@@ -3162,7 +2958,7 @@ fn when_getting_homogeneous_transform_to_body_with_one_element_and_no_motion_it_
     // | sin(30) cos(30)  0.0 0.5 |
     // | 0.0     0.0      1.0 0.0 |
     // | 0.0     0.0      0.0 1.0 |
-    let (angle_suspension_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
+    let (angle_suspension_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
     let angle_suspension_rad = (angle_suspension_deg + 30.0) * (PI / 180.0);
 
     #[rustfmt::skip]
@@ -3241,7 +3037,7 @@ fn when_getting_homogeneous_transform_to_body_with_primatic_x_and_prismatic_y_mo
     // | sin(30) cos(30)  0.0 0.5 |
     // | 0.0     0.0      1.0 0.0 |
     // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
+    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
     let angle_rad = angle_deg * (PI / 180.0);
 
     #[rustfmt::skip]
@@ -3292,7 +3088,7 @@ fn when_getting_homogeneous_transform_to_body_with_primatic_x_and_prismatic_y_mo
     // | sin(30) cos(30)  0.0 0.5 |
     // | 0.0     0.0      1.0 0.0 |
     // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
+    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
     let angle_rad = angle_deg * (PI / 180.0);
 
     #[rustfmt::skip]
@@ -3334,7 +3130,7 @@ fn when_getting_homogeneous_transform_to_body_with_primatic_x_and_prismatic_y_mo
     // | sin(60) cos(60)  0.0 0.5 |
     // | 0.0     0.0      1.0 0.0 |
     // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
+    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
     let angle_rad = (angle_deg + 30.0) * (PI / 180.0);
 
     #[rustfmt::skip]
@@ -3417,7 +3213,7 @@ fn when_getting_homogeneous_transform_to_body_with_primatic_x_and_prismatic_z_mo
     // | sin(30) cos(30)  0.0 0.5 |
     // | 0.0     0.0      1.0 0.0 |
     // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
+    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
     let angle_rad = angle_deg * (PI / 180.0);
 
     #[rustfmt::skip]
@@ -3468,7 +3264,7 @@ fn when_getting_homogeneous_transform_to_body_with_primatic_x_and_prismatic_z_mo
     // | sin(30) cos(30)  0.0 0.5 |
     // | 0.0     0.0      1.0 0.0 |
     // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
+    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
     let angle_rad = angle_deg * (PI / 180.0);
 
     #[rustfmt::skip]
@@ -3510,7 +3306,7 @@ fn when_getting_homogeneous_transform_to_body_with_primatic_x_and_prismatic_z_mo
     // | sin(60) cos(60)  0.0 0.5 |
     // | 0.0     0.0      1.0 0.0 |
     // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
+    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
     let angle_rad = (angle_deg + 30.0) * (PI / 180.0);
 
     #[rustfmt::skip]
@@ -3593,7 +3389,7 @@ fn when_getting_homogeneous_transform_to_body_with_primatic_y_and_prismatic_z_mo
     // | sin(30) cos(30)  0.0 0.5 |
     // | 0.0     0.0      1.0 0.0 |
     // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
+    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
     let angle_rad = angle_deg * (PI / 180.0);
 
     #[rustfmt::skip]
@@ -3644,7 +3440,7 @@ fn when_getting_homogeneous_transform_to_body_with_primatic_y_and_prismatic_z_mo
     // | sin(30) cos(30)  0.0 0.5 |
     // | 0.0     0.0      1.0 0.0 |
     // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
+    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
     let angle_rad = angle_deg * (PI / 180.0);
 
     #[rustfmt::skip]
@@ -3686,7 +3482,7 @@ fn when_getting_homogeneous_transform_to_body_with_primatic_y_and_prismatic_z_mo
     // | sin(60) cos(60)  0.0 0.5 |
     // | 0.0     0.0      1.0 0.0 |
     // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
+    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
     let angle_rad = (angle_deg + 30.0) * (PI / 180.0);
 
     #[rustfmt::skip]
@@ -3770,7 +3566,7 @@ fn when_getting_homogeneous_transform_to_frame_across_wheel_chains_and_motion_it
     // | sin(30) cos(30)  0.0 0.5 |
     // | 0.0     0.0      1.0 0.0 |
     // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
+    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
     let angle_rad = angle_deg * (PI / 180.0);
 
     #[rustfmt::skip]
@@ -3821,7 +3617,7 @@ fn when_getting_homogeneous_transform_to_frame_across_wheel_chains_and_motion_it
     // | sin(30) cos(30)  0.0 0.5 |
     // | 0.0     0.0      1.0 0.0 |
     // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
+    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
     let angle_rad = angle_deg * (PI / 180.0);
 
     #[rustfmt::skip]
@@ -3863,7 +3659,7 @@ fn when_getting_homogeneous_transform_to_frame_across_wheel_chains_and_motion_it
     // | sin(60) cos(60)  0.0 0.5 |
     // | 0.0     0.0      1.0 0.0 |
     // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
+    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
     let angle_rad = (angle_deg + 30.0) * (PI / 180.0);
 
     #[rustfmt::skip]
@@ -3948,7 +3744,7 @@ fn when_getting_homogeneous_transform_to_frame_across_wheel_chains_and_no_motion
     // | sin(30) cos(30)  0.0 0.5 |
     // | 0.0     0.0      1.0 0.0 |
     // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
+    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
     let angle_rad = angle_deg * (PI / 180.0);
 
     #[rustfmt::skip]
@@ -3991,11 +3787,6 @@ fn when_getting_homogeneous_transform_to_frame_with_one_element_and_motion_it_sh
 #[test]
 fn when_getting_homogeneous_transform_to_frame_with_one_element_and_no_motion_it_should_return_the_transform(
 ) {
-    assert!(false);
-}
-
-#[test]
-fn when_getting_homogeneous_transform_to_parent_with_motion_it_should_return_the_transform() {
     assert!(false);
 }
 
@@ -4073,7 +3864,7 @@ fn when_getting_homogeneous_transform_to_parent_with_no_motion_it_should_return_
     // | sin(-30) cos(-30)  0.0 0.0 |
     // | 0.0      0.0       1.0 -0.1 |
     // | 0.0      0.0       0.0 1.0 |
-    let (_, angle_deg) = frame_angles_for(DriveModulePosition::LeftFront);
+    let (_, angle_deg) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
     let angle_rad = angle_deg * (PI / 180.0);
 
     #[rustfmt::skip]
@@ -4095,14 +3886,14 @@ fn when_getting_homogeneous_transform_to_parent_with_no_motion_it_should_return_
     // | sin(30) cos(30)  0.0 0.0 |
     // | 0.0     0.0      1.0 -0.1 |
     // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
+    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
     let angle_rad = angle_deg * (PI / 180.0);
 
     #[rustfmt::skip]
     let expected = Matrix4::new(
-        angle_rad.cos(), -angle_rad.sin(), 0.0, 0.25,
-        angle_rad.sin(),  angle_rad.cos(), 0.0, 0.0,
-        0.0,              0.0,             1.0, -0.1,
+        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
+        angle_rad.sin(),  angle_rad.cos(), 0.0, 0.5,
+        0.0,              0.0,             1.0, 0.0,
         0.0,              0.0,             0.0, 1.0,
     );
     assert_eq!(expected, suspension_to_body_matrix);
@@ -4145,17 +3936,17 @@ fn when_getting_homogeneous_transform_to_parent_with_primatic_x_motion_should_re
     // | sin(30) cos(30)  0.0 0.5 |
     // | 0.0     0.0      1.0 0.0 |
     // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
+    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
     let angle_rad = angle_deg * (PI / 180.0);
 
     #[rustfmt::skip]
-    let expected = Matrix4::new(
+    let expected_without_motion = Matrix4::new(
         angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
         angle_rad.sin(),  angle_rad.cos(), 0.0, 0.5,
         0.0,              0.0,             1.0, 0.0,
         0.0,              0.0,             0.0, 1.0,
     );
-    assert_eq!(expected, actuator_to_body_matrix);
+    assert_eq!(expected_without_motion, actuator_to_body_matrix);
 
     // Push the actuator out
     let msg = (
@@ -4182,7 +3973,7 @@ fn when_getting_homogeneous_transform_to_parent_with_primatic_x_motion_should_re
     // | sin(30) cos(30)  0.0 0.5 |
     // | 0.0     0.0      1.0 0.0 |
     // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
+    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
     let angle_rad = angle_deg * (PI / 180.0);
 
     #[rustfmt::skip]
@@ -4219,7 +4010,7 @@ fn when_getting_homogeneous_transform_to_parent_with_primatic_x_motion_should_re
     // | sin(30) cos(30)  0.0 0.5 |
     // | 0.0     0.0      1.0 0.0 |
     // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
+    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
     let angle_rad = angle_deg * (PI / 180.0);
 
     #[rustfmt::skip]
@@ -4269,7 +4060,7 @@ fn when_getting_homogeneous_transform_to_parent_with_primatic_y_motion_should_re
     // | sin(30) cos(30)  0.0 0.5 |
     // | 0.0     0.0      1.0 0.0 |
     // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
+    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
     let angle_rad = angle_deg * (PI / 180.0);
 
     #[rustfmt::skip]
@@ -4306,7 +4097,7 @@ fn when_getting_homogeneous_transform_to_parent_with_primatic_y_motion_should_re
     // | sin(30) cos(30)  0.0 1.5 |
     // | 0.0     0.0      1.0 0.0 |
     // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
+    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
     let angle_rad = angle_deg * (PI / 180.0);
 
     #[rustfmt::skip]
@@ -4343,7 +4134,7 @@ fn when_getting_homogeneous_transform_to_parent_with_primatic_y_motion_should_re
     // | sin(30) cos(30)  0.0 -0.5 |
     // | 0.0     0.0      1.0 0.0 |
     // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
+    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
     let angle_rad = angle_deg * (PI / 180.0);
 
     #[rustfmt::skip]
@@ -4393,7 +4184,7 @@ fn when_getting_homogeneous_transform_to_parent_with_primatic_z_motion_should_re
     // | sin(30) cos(30)  0.0 0.5 |
     // | 0.0     0.0      1.0 0.0 |
     // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
+    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
     let angle_rad = angle_deg * (PI / 180.0);
 
     #[rustfmt::skip]
@@ -4430,7 +4221,7 @@ fn when_getting_homogeneous_transform_to_parent_with_primatic_z_motion_should_re
     // | sin(30) cos(30)  0.0 0.5 |
     // | 0.0     0.0      1.0 1.0 |
     // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
+    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
     let angle_rad = angle_deg * (PI / 180.0);
 
     #[rustfmt::skip]
@@ -4467,7 +4258,7 @@ fn when_getting_homogeneous_transform_to_parent_with_primatic_z_motion_should_re
     // | sin(30) cos(30)  0.0 0.5 |
     // | 0.0     0.0      1.0 -1.0 |
     // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
+    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
     let angle_rad = angle_deg * (PI / 180.0);
 
     #[rustfmt::skip]
@@ -4478,358 +4269,6 @@ fn when_getting_homogeneous_transform_to_parent_with_primatic_z_motion_should_re
         0.0,              0.0,             0.0, 1.0,
     );
     assert_eq!(expected, actuator_to_body_matrix);
-}
-
-#[test]
-fn when_getting_homogeneous_transform_to_parent_with_revolute_x_and_revolute_y_motion_should_return_the_transform(
-) {
-    let mut model = MotionModel::new();
-    let body_id = add_body_to_model(&mut model).unwrap();
-
-    // Actuator 1
-    let (sender1, receiver1) = crossbeam_channel::unbounded();
-    let (cmd_sender1, _) = crossbeam_channel::unbounded();
-    let mut hardware_actuator1 = MockHardwareActuator {
-        receiver: receiver1,
-        sender: sender1.clone(),
-        command_sender: cmd_sender1,
-        update_sender: None,
-        id: None,
-    };
-    let change_processor = Box::new(HardwareChangeProcessor::new(1000));
-
-    let actuator_1 = Actuator::new(&mut hardware_actuator1, &change_processor).unwrap();
-    let id_joint_1 = add_actuated_joint_to_model(
-        &mut model,
-        &body_id,
-        DriveModulePosition::LeftFront,
-        FrameDofType::RevoluteX,
-        actuator_1,
-    )
-    .unwrap();
-
-    // Actuator 2
-    let (sender2, receiver2) = crossbeam_channel::unbounded();
-    let (cmd_sender2, _) = crossbeam_channel::unbounded();
-    let mut hardware_actuator2 = MockHardwareActuator {
-        receiver: receiver2,
-        sender: sender2.clone(),
-        command_sender: cmd_sender2,
-        update_sender: None,
-        id: None,
-    };
-
-    let actuator_2 = Actuator::new(&mut hardware_actuator2, &change_processor).unwrap();
-    let id_joint_2 = add_actuated_joint_to_model(
-        &mut model,
-        &id_joint_1,
-        DriveModulePosition::LeftFront,
-        FrameDofType::RevoluteY,
-        actuator_2,
-    )
-    .unwrap();
-
-    // wheel to steering
-    let joint_2_to_body = model.get_homogeneous_transform_to_body(&id_joint_2);
-    assert!(joint_2_to_body.is_ok());
-
-    let joint_2_to_body_matrix = joint_2_to_body.unwrap();
-
-    // | cos(30) -sin(30) 0.0 1.0 |
-    // | sin(30) cos(30)  0.0 0.5 |
-    // | 0.0     0.0      1.0 0.0 |
-    // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
-    let angle_rad = angle_deg * (PI / 180.0);
-
-    #[rustfmt::skip]
-    let joint_2_to_joint_1_matrix = Matrix4::new(
-        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
-        angle_rad.sin(), angle_rad.cos(),  0.0, 0.5,
-        0.0,             0.0,              1.0, 0.0,
-        0.0,             0.0,              0.0, 1.0,
-    );
-
-    #[rustfmt::skip]
-    let joint_1_to_body_matrix = Matrix4::new(
-        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
-        angle_rad.sin(), angle_rad.cos(),  0.0, 0.5,
-        0.0,             0.0,              1.0, 0.0,
-        0.0,             0.0,              0.0, 1.0,
-    );
-    let expected = joint_1_to_body_matrix * joint_2_to_joint_1_matrix;
-    assert_eq!(expected, joint_2_to_body_matrix);
-
-    // Push the actuators out
-    let angle_joint_1_z_deg = 30.0;
-    let angle_joint_1_z_rad = angle_joint_1_z_deg * (PI / 180.0);
-    let msg = (
-        JointState::new(angle_joint_1_z_rad, None, None, None),
-        ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
-    );
-    let _ = sender1.send(msg).unwrap();
-    let _ = hardware_actuator1
-        .update_sender
-        .unwrap()
-        .send(hardware_actuator1.id.unwrap())
-        .unwrap();
-
-    // | 1.0 0.0      0.0      0.0 |
-    // | 0.0 cos(30)  -sin(30) 0.5 |
-    // | 0.0 sin(30)  cos(30)  0.0 |
-    // | 0.0 0.0      0.0      1.0 |
-    #[rustfmt::skip]
-    let rotation_x = Matrix4::new(
-        angle_joint_1_z_rad.cos(), -angle_joint_1_z_rad.sin(), 0.0, 0.0,
-        angle_joint_1_z_rad.sin(), angle_joint_1_z_rad.cos(),  0.0, 0.0,
-        0.0,                       0.0,                        1.0, 0.0,
-        0.0,                       0.0,                        0.0, 1.0,
-    );
-
-    // | cos(30) -sin(30) 0.0 1.0 |
-    // | sin(30) cos(30)  0.0 0.5 |
-    // | 0.0     0.0      1.0 0.0 |
-    // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
-    let angle_rad = angle_deg * (PI / 180.0);
-
-    #[rustfmt::skip]
-    let original = Matrix4::new(
-        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
-        angle_rad.sin(),  angle_rad.cos(), 0.0, 0.5,
-        0.0,              0.0,             1.0, 0.0,
-        0.0,              0.0,             0.0, 1.0,
-    );
-
-    let joint_1_to_body_matrix = rotation_x * original;
-
-    let angle_joint_2_y_deg = 30.0;
-    let angle_joint_2_y_rad = angle_joint_2_y_deg * (PI / 180.0);
-    let msg = (
-        JointState::new(angle_joint_2_y_deg, None, None, None),
-        ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
-    );
-    let _ = sender2.send(msg).unwrap();
-    let _ = hardware_actuator2
-        .update_sender
-        .unwrap()
-        .send(hardware_actuator2.id.unwrap())
-        .unwrap();
-
-    // | cos(30)  0.0 sin(30) 0.0 |
-    // | 0.0      1.0 0.0     0.0 |
-    // | -sin(30) 0.0 cos(30) 0.0 |
-    // | 0.0      0.0 0.0     1.0 |
-    #[rustfmt::skip]
-    let rotation_y = Matrix4::new(
-        angle_joint_2_y_rad.cos(),  0.0,  angle_joint_2_y_rad.sin(), 0.0,
-        0.0,                        1.0,  0.0,                       0.0,
-        -angle_joint_2_y_rad.sin(), 0.0, angle_joint_2_y_rad.cos(),  0.0,
-        0.0,                        0.0, 0.0,                        1.0,
-    );
-
-    // | cos(60) -sin(60) 0.0 1.0 |
-    // | sin(60) cos(60)  0.0 0.5 |
-    // | 0.0     0.0      1.0 0.0 |
-    // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
-    let angle_rad = (angle_deg + 30.0) * (PI / 180.0);
-
-    #[rustfmt::skip]
-    let original = Matrix4::new(
-        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
-        angle_rad.sin(),  angle_rad.cos(), 0.0, 0.5,
-        0.0,              0.0,             1.0, 0.0,
-        0.0,              0.0,             0.0, 1.0,
-    );
-
-    let joint_2_to_joint_1_matrix = rotation_y * original;
-    let expected = joint_1_to_body_matrix * joint_2_to_joint_1_matrix;
-
-    // Allow some time to ensure the task is not processed
-    std::thread::sleep(Duration::from_millis(20));
-
-    let joint_2_to_body = model.get_homogeneous_transform_to_body(&id_joint_2);
-    assert!(joint_2_to_body.is_ok());
-    let joint_2_to_body_matrix = joint_2_to_body.unwrap();
-
-    assert_eq!(expected, joint_2_to_body_matrix);
-}
-
-#[test]
-fn when_getting_homogeneous_transform_to_parent_with_revolute_x_and_revolute_z_motion_should_return_the_transform(
-) {
-    let mut model = MotionModel::new();
-    let body_id = add_body_to_model(&mut model).unwrap();
-
-    // Actuator 1
-    let (sender1, receiver1) = crossbeam_channel::unbounded();
-    let (cmd_sender1, _) = crossbeam_channel::unbounded();
-    let mut hardware_actuator1 = MockHardwareActuator {
-        receiver: receiver1,
-        sender: sender1.clone(),
-        command_sender: cmd_sender1,
-        update_sender: None,
-        id: None,
-    };
-    let change_processor = Box::new(HardwareChangeProcessor::new(1000));
-
-    let actuator_1 = Actuator::new(&mut hardware_actuator1, &change_processor).unwrap();
-    let id_joint_1 = add_actuated_joint_to_model(
-        &mut model,
-        &body_id,
-        DriveModulePosition::LeftFront,
-        FrameDofType::RevoluteX,
-        actuator_1,
-    )
-    .unwrap();
-
-    // Actuator 2
-    let (sender2, receiver2) = crossbeam_channel::unbounded();
-    let (cmd_sender2, _) = crossbeam_channel::unbounded();
-    let mut hardware_actuator2 = MockHardwareActuator {
-        receiver: receiver2,
-        sender: sender2.clone(),
-        command_sender: cmd_sender2,
-        update_sender: None,
-        id: None,
-    };
-
-    let actuator_2 = Actuator::new(&mut hardware_actuator2, &change_processor).unwrap();
-    let id_joint_2 = add_actuated_joint_to_model(
-        &mut model,
-        &id_joint_1,
-        DriveModulePosition::LeftFront,
-        FrameDofType::RevoluteZ,
-        actuator_2,
-    )
-    .unwrap();
-
-    // wheel to steering
-    let joint_2_to_body = model.get_homogeneous_transform_to_body(&id_joint_2);
-    assert!(joint_2_to_body.is_ok());
-
-    let joint_2_to_body_matrix = joint_2_to_body.unwrap();
-
-    // | cos(30) -sin(30) 0.0 1.0 |
-    // | sin(30) cos(30)  0.0 0.5 |
-    // | 0.0     0.0      1.0 0.0 |
-    // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
-    let angle_rad = angle_deg * (PI / 180.0);
-
-    #[rustfmt::skip]
-    let joint_2_to_joint_1_matrix = Matrix4::new(
-        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
-        angle_rad.sin(), angle_rad.cos(),  0.0, 0.5,
-        0.0,             0.0,              1.0, 0.0,
-        0.0,             0.0,              0.0, 1.0,
-    );
-
-    #[rustfmt::skip]
-    let joint_1_to_body_matrix = Matrix4::new(
-        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
-        angle_rad.sin(), angle_rad.cos(),  0.0, 0.5,
-        0.0,             0.0,              1.0, 0.0,
-        0.0,             0.0,              0.0, 1.0,
-    );
-    let expected = joint_1_to_body_matrix * joint_2_to_joint_1_matrix;
-    assert_eq!(expected, joint_2_to_body_matrix);
-
-    // Push the actuators out
-    let angle_joint_1_z_deg = 30.0;
-    let angle_joint_1_z_rad = angle_joint_1_z_deg * (PI / 180.0);
-    let msg = (
-        JointState::new(angle_joint_1_z_rad, None, None, None),
-        ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
-    );
-    let _ = sender1.send(msg).unwrap();
-    let _ = hardware_actuator1
-        .update_sender
-        .unwrap()
-        .send(hardware_actuator1.id.unwrap())
-        .unwrap();
-
-    // | 1.0 0.0      0.0      0.0 |
-    // | 0.0 cos(30)  -sin(30) 0.5 |
-    // | 0.0 sin(30)  cos(30)  0.0 |
-    // | 0.0 0.0      0.0      1.0 |
-    #[rustfmt::skip]
-    let rotation_x = Matrix4::new(
-        angle_joint_1_z_rad.cos(), -angle_joint_1_z_rad.sin(), 0.0, 0.0,
-        angle_joint_1_z_rad.sin(), angle_joint_1_z_rad.cos(),  0.0, 0.0,
-        0.0,                       0.0,                        1.0, 0.0,
-        0.0,                       0.0,                        0.0, 1.0,
-    );
-
-    // | cos(30) -sin(30) 0.0 1.0 |
-    // | sin(30) cos(30)  0.0 0.5 |
-    // | 0.0     0.0      1.0 0.0 |
-    // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
-    let angle_rad = angle_deg * (PI / 180.0);
-
-    #[rustfmt::skip]
-    let original = Matrix4::new(
-        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
-        angle_rad.sin(),  angle_rad.cos(), 0.0, 0.5,
-        0.0,              0.0,             1.0, 0.0,
-        0.0,              0.0,             0.0, 1.0,
-    );
-
-    let joint_1_to_body_matrix = rotation_x * original;
-
-    let angle_joint_2_y_deg = 30.0;
-    let angle_joint_2_y_rad = angle_joint_2_y_deg * (PI / 180.0);
-    let msg = (
-        JointState::new(angle_joint_2_y_deg, None, None, None),
-        ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
-    );
-    let _ = sender2.send(msg).unwrap();
-    let _ = hardware_actuator2
-        .update_sender
-        .unwrap()
-        .send(hardware_actuator2.id.unwrap())
-        .unwrap();
-
-    // | cos(30)  0.0 sin(30) 0.0 |
-    // | 0.0      1.0 0.0     0.0 |
-    // | -sin(30) 0.0 cos(30) 0.0 |
-    // | 0.0      0.0 0.0     1.0 |
-    #[rustfmt::skip]
-    let rotation_y = Matrix4::new(
-        angle_joint_2_y_rad.cos(),  0.0,  angle_joint_2_y_rad.sin(), 0.0,
-        0.0,                        1.0,  0.0,                       0.0,
-        -angle_joint_2_y_rad.sin(), 0.0, angle_joint_2_y_rad.cos(),  0.0,
-        0.0,                        0.0, 0.0,                        1.0,
-    );
-
-    // | cos(60) -sin(60) 0.0 1.0 |
-    // | sin(60) cos(60)  0.0 0.5 |
-    // | 0.0     0.0      1.0 0.0 |
-    // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
-    let angle_rad = (angle_deg + 30.0) * (PI / 180.0);
-
-    #[rustfmt::skip]
-    let original = Matrix4::new(
-        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
-        angle_rad.sin(),  angle_rad.cos(), 0.0, 0.5,
-        0.0,              0.0,             1.0, 0.0,
-        0.0,              0.0,             0.0, 1.0,
-    );
-
-    let joint_2_to_joint_1_matrix = rotation_y * original;
-    let expected = joint_1_to_body_matrix * joint_2_to_joint_1_matrix;
-
-    // Allow some time to ensure the task is not processed
-    std::thread::sleep(Duration::from_millis(20));
-
-    let joint_2_to_body = model.get_homogeneous_transform_to_body(&id_joint_2);
-    assert!(joint_2_to_body.is_ok());
-    let joint_2_to_body_matrix = joint_2_to_body.unwrap();
-
-    assert_eq!(expected, joint_2_to_body_matrix);
 }
 
 #[test]
@@ -4869,17 +4308,18 @@ fn when_getting_homogeneous_transform_to_parent_with_revolute_x_motion_should_re
     // | sin(30) cos(30)  0.0 0.5 |
     // | 0.0     0.0      1.0 0.0 |
     // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
+    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
     let angle_rad = angle_deg * (PI / 180.0);
 
     #[rustfmt::skip]
-    let expected = Matrix4::new(
+    let expected_no_movement = Matrix4::new(
         angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
         angle_rad.sin(),  angle_rad.cos(), 0.0, 0.5,
         0.0,              0.0,             1.0, 0.0,
         0.0,              0.0,             0.0, 1.0,
     );
-    assert_eq!(expected, actuator_to_body_matrix);
+
+    assert_eq!(expected_no_movement, actuator_to_body_matrix);
 
     // Push the actuator out
     let angle_x_deg = 30.0;
@@ -4904,35 +4344,40 @@ fn when_getting_homogeneous_transform_to_parent_with_revolute_x_motion_should_re
 
     let actuator_to_body_matrix = actuator_to_body.unwrap();
 
-    // | 1.0 0.0      0.0      0.0 |
-    // | 0.0 cos(30)  -sin(30) 0.5 |
-    // | 0.0 sin(30)  cos(30)  0.0 |
-    // | 0.0 0.0      0.0      1.0 |
+    // | 1.0 0.0      0.0      |
+    // | 0.0 cos(30)  -sin(30) |
+    // | 0.0 sin(30)  cos(30)  |
     #[rustfmt::skip]
     let rotation_x = Matrix4::new(
         1.0, 0.0,               0.0,                0.0,
         0.0, angle_x_rad.cos(), -angle_x_rad.sin(), 0.0,
-        0.0, angle_x_rad.sin(),  angle_x_rad.cos(), 0.0,
+        0.0, angle_x_rad.sin(), angle_x_rad.cos(),  0.0,
         0.0, 0.0,               0.0,                1.0,
     );
 
-    // | cos(60) -sin(60) 0.0 1.0 |
-    // | sin(60) cos(60)  0.0 0.5 |
-    // | 0.0     0.0      1.0 0.0 |
-    // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
-    let angle_rad = (angle_deg + 30.0) * (PI / 180.0);
-
-    #[rustfmt::skip]
-    let original = Matrix4::new(
-        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
-        angle_rad.sin(),  angle_rad.cos(), 0.0, 0.5,
-        0.0,              0.0,             1.0, 0.0,
-        0.0,              0.0,             0.0, 1.0,
-    );
-
-    let expected = rotation_x * original;
-    assert_eq!(expected, actuator_to_body_matrix);
+    let expected = rotation_x * expected_no_movement;
+    let mut expected_it = expected.iter();
+    let mut actuator_to_body_it = actuator_to_body_matrix.iter();
+    loop {
+        match (expected_it.next(), actuator_to_body_it.next()) {
+            (Some(a), Some(b)) => {
+                assert!(
+                    (*a).approx_eq(
+                        *b,
+                        F64Margin {
+                            ulps: 2,
+                            epsilon: 1e-6
+                        }
+                    ),
+                    "Expected {:.5} and {:.5} to be equal within 2 ulps or 1e-6",
+                    *a,
+                    *b
+                );
+            }
+            (None, None) => break,
+            _ => assert!(false),
+        }
+    }
 
     // Pull the actuator in
     let angle_x_deg = -30.0;
@@ -4957,10 +4402,10 @@ fn when_getting_homogeneous_transform_to_parent_with_revolute_x_motion_should_re
 
     let actuator_to_body_matrix = actuator_to_body.unwrap();
 
-    // | 1.0 0.0      0.0      0.0 |
+    // | 1.0 0.0        0.0      0.0 |
     // | 0.0 cos(-30)  -sin(-30) 0.5 |
-    // | 0.0 sin(-30)  cos(-30)  0.0 |
-    // | 0.0 0.0      0.0      1.0 |
+    // | 0.0 sin(-30)   cos(-30) 0.0 |
+    // | 0.0 0.0        0.0      1.0 |
     #[rustfmt::skip]
     let rotation_x = Matrix4::new(
         1.0, 0.0,               0.0,                0.0,
@@ -4969,375 +4414,29 @@ fn when_getting_homogeneous_transform_to_parent_with_revolute_x_motion_should_re
         0.0, 0.0,               0.0,                1.0,
     );
 
-    // | cos(30) -sin(30) 0.0 1.0 |
-    // | sin(30) cos(30)  0.0 0.5 |
-    // | 0.0     0.0      1.0 0.0 |
-    // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
-    let angle_rad = (angle_deg + 30.0) * (PI / 180.0);
-
-    #[rustfmt::skip]
-    let original = Matrix4::new(
-        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
-        angle_rad.sin(),  angle_rad.cos(), 0.0, 0.5,
-        0.0,              0.0,             1.0, 0.0,
-        0.0,              0.0,             0.0, 1.0,
-    );
-
-    let expected = rotation_x * original;
-    assert_eq!(expected, actuator_to_body_matrix);
-}
-
-#[test]
-fn when_getting_homogeneous_transform_to_parent_with_revolute_y_and_revolute_x_motion_should_return_the_transform(
-) {
-    let mut model = MotionModel::new();
-    let body_id = add_body_to_model(&mut model).unwrap();
-
-    // Actuator 1
-    let (sender1, receiver1) = crossbeam_channel::unbounded();
-    let (cmd_sender1, _) = crossbeam_channel::unbounded();
-    let mut hardware_actuator1 = MockHardwareActuator {
-        receiver: receiver1,
-        sender: sender1.clone(),
-        command_sender: cmd_sender1,
-        update_sender: None,
-        id: None,
-    };
-    let change_processor = Box::new(HardwareChangeProcessor::new(1000));
-
-    let actuator_1 = Actuator::new(&mut hardware_actuator1, &change_processor).unwrap();
-    let id_joint_1 = add_actuated_joint_to_model(
-        &mut model,
-        &body_id,
-        DriveModulePosition::LeftFront,
-        FrameDofType::RevoluteY,
-        actuator_1,
-    )
-    .unwrap();
-
-    // Actuator 2
-    let (sender2, receiver2) = crossbeam_channel::unbounded();
-    let (cmd_sender2, _) = crossbeam_channel::unbounded();
-    let mut hardware_actuator2 = MockHardwareActuator {
-        receiver: receiver2,
-        sender: sender2.clone(),
-        command_sender: cmd_sender2,
-        update_sender: None,
-        id: None,
-    };
-
-    let actuator_2 = Actuator::new(&mut hardware_actuator2, &change_processor).unwrap();
-    let id_joint_2 = add_actuated_joint_to_model(
-        &mut model,
-        &id_joint_1,
-        DriveModulePosition::LeftFront,
-        FrameDofType::RevoluteX,
-        actuator_2,
-    )
-    .unwrap();
-
-    // wheel to steering
-    let joint_2_to_body = model.get_homogeneous_transform_to_body(&id_joint_2);
-    assert!(joint_2_to_body.is_ok());
-
-    let joint_2_to_body_matrix = joint_2_to_body.unwrap();
-
-    // | cos(30) -sin(30) 0.0 1.0 |
-    // | sin(30) cos(30)  0.0 0.5 |
-    // | 0.0     0.0      1.0 0.0 |
-    // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
-    let angle_rad = angle_deg * (PI / 180.0);
-
-    #[rustfmt::skip]
-    let joint_2_to_joint_1_matrix = Matrix4::new(
-        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
-        angle_rad.sin(), angle_rad.cos(),  0.0, 0.5,
-        0.0,             0.0,              1.0, 0.0,
-        0.0,             0.0,              0.0, 1.0,
-    );
-
-    #[rustfmt::skip]
-    let joint_1_to_body_matrix = Matrix4::new(
-        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
-        angle_rad.sin(), angle_rad.cos(),  0.0, 0.5,
-        0.0,             0.0,              1.0, 0.0,
-        0.0,             0.0,              0.0, 1.0,
-    );
-    let expected = joint_1_to_body_matrix * joint_2_to_joint_1_matrix;
-    assert_eq!(expected, joint_2_to_body_matrix);
-
-    // Push the actuators out
-    let angle_joint_1_z_deg = 30.0;
-    let angle_joint_1_z_rad = angle_joint_1_z_deg * (PI / 180.0);
-    let msg = (
-        JointState::new(angle_joint_1_z_rad, None, None, None),
-        ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
-    );
-    let _ = sender1.send(msg).unwrap();
-    let _ = hardware_actuator1
-        .update_sender
-        .unwrap()
-        .send(hardware_actuator1.id.unwrap())
-        .unwrap();
-
-    // | 1.0 0.0      0.0      0.0 |
-    // | 0.0 cos(30)  -sin(30) 0.5 |
-    // | 0.0 sin(30)  cos(30)  0.0 |
-    // | 0.0 0.0      0.0      1.0 |
-    #[rustfmt::skip]
-    let rotation_x = Matrix4::new(
-        angle_joint_1_z_rad.cos(), -angle_joint_1_z_rad.sin(), 0.0, 0.0,
-        angle_joint_1_z_rad.sin(), angle_joint_1_z_rad.cos(),  0.0, 0.0,
-        0.0,                       0.0,                        1.0, 0.0,
-        0.0,                       0.0,                        0.0, 1.0,
-    );
-
-    // | cos(30) -sin(30) 0.0 1.0 |
-    // | sin(30) cos(30)  0.0 0.5 |
-    // | 0.0     0.0      1.0 0.0 |
-    // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
-    let angle_rad = angle_deg * (PI / 180.0);
-
-    #[rustfmt::skip]
-    let original = Matrix4::new(
-        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
-        angle_rad.sin(),  angle_rad.cos(), 0.0, 0.5,
-        0.0,              0.0,             1.0, 0.0,
-        0.0,              0.0,             0.0, 1.0,
-    );
-
-    let joint_1_to_body_matrix = rotation_x * original;
-
-    let angle_joint_2_y_deg = 30.0;
-    let angle_joint_2_y_rad = angle_joint_2_y_deg * (PI / 180.0);
-    let msg = (
-        JointState::new(angle_joint_2_y_deg, None, None, None),
-        ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
-    );
-    let _ = sender2.send(msg).unwrap();
-    let _ = hardware_actuator2
-        .update_sender
-        .unwrap()
-        .send(hardware_actuator2.id.unwrap())
-        .unwrap();
-
-    // | cos(30)  0.0 sin(30) 0.0 |
-    // | 0.0      1.0 0.0     0.0 |
-    // | -sin(30) 0.0 cos(30) 0.0 |
-    // | 0.0      0.0 0.0     1.0 |
-    #[rustfmt::skip]
-    let rotation_y = Matrix4::new(
-        angle_joint_2_y_rad.cos(),  0.0,  angle_joint_2_y_rad.sin(), 0.0,
-        0.0,                        1.0,  0.0,                       0.0,
-        -angle_joint_2_y_rad.sin(), 0.0, angle_joint_2_y_rad.cos(),  0.0,
-        0.0,                        0.0, 0.0,                        1.0,
-    );
-
-    // | cos(60) -sin(60) 0.0 1.0 |
-    // | sin(60) cos(60)  0.0 0.5 |
-    // | 0.0     0.0      1.0 0.0 |
-    // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
-    let angle_rad = (angle_deg + 30.0) * (PI / 180.0);
-
-    #[rustfmt::skip]
-    let original = Matrix4::new(
-        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
-        angle_rad.sin(),  angle_rad.cos(), 0.0, 0.5,
-        0.0,              0.0,             1.0, 0.0,
-        0.0,              0.0,             0.0, 1.0,
-    );
-
-    let joint_2_to_joint_1_matrix = rotation_y * original;
-    let expected = joint_1_to_body_matrix * joint_2_to_joint_1_matrix;
-
-    // Allow some time to ensure the task is not processed
-    std::thread::sleep(Duration::from_millis(20));
-
-    let joint_2_to_body = model.get_homogeneous_transform_to_body(&id_joint_2);
-    assert!(joint_2_to_body.is_ok());
-    let joint_2_to_body_matrix = joint_2_to_body.unwrap();
-
-    assert_eq!(expected, joint_2_to_body_matrix);
-}
-
-#[test]
-fn when_getting_homogeneous_transform_to_parent_with_revolute_y_and_revolute_z_motion_should_return_the_transform(
-) {
-    let mut model = MotionModel::new();
-    let body_id = add_body_to_model(&mut model).unwrap();
-
-    // Actuator 1
-    let (sender1, receiver1) = crossbeam_channel::unbounded();
-    let (cmd_sender1, _) = crossbeam_channel::unbounded();
-    let mut hardware_actuator1 = MockHardwareActuator {
-        receiver: receiver1,
-        sender: sender1.clone(),
-        command_sender: cmd_sender1,
-        update_sender: None,
-        id: None,
-    };
-    let change_processor = Box::new(HardwareChangeProcessor::new(1000));
-
-    let actuator_1 = Actuator::new(&mut hardware_actuator1, &change_processor).unwrap();
-    let id_joint_1 = add_actuated_joint_to_model(
-        &mut model,
-        &body_id,
-        DriveModulePosition::LeftFront,
-        FrameDofType::RevoluteY,
-        actuator_1,
-    )
-    .unwrap();
-
-    // Actuator 2
-    let (sender2, receiver2) = crossbeam_channel::unbounded();
-    let (cmd_sender2, _) = crossbeam_channel::unbounded();
-    let mut hardware_actuator2 = MockHardwareActuator {
-        receiver: receiver2,
-        sender: sender2.clone(),
-        command_sender: cmd_sender2,
-        update_sender: None,
-        id: None,
-    };
-
-    let actuator_2 = Actuator::new(&mut hardware_actuator2, &change_processor).unwrap();
-    let id_joint_2 = add_actuated_joint_to_model(
-        &mut model,
-        &id_joint_1,
-        DriveModulePosition::LeftFront,
-        FrameDofType::RevoluteZ,
-        actuator_2,
-    )
-    .unwrap();
-
-    // wheel to steering
-    let joint_2_to_body = model.get_homogeneous_transform_to_body(&id_joint_2);
-    assert!(joint_2_to_body.is_ok());
-
-    let joint_2_to_body_matrix = joint_2_to_body.unwrap();
-
-    // | cos(30) -sin(30) 0.0 1.0 |
-    // | sin(30) cos(30)  0.0 0.5 |
-    // | 0.0     0.0      1.0 0.0 |
-    // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
-    let angle_rad = angle_deg * (PI / 180.0);
-
-    #[rustfmt::skip]
-    let joint_2_to_joint_1_matrix = Matrix4::new(
-        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
-        angle_rad.sin(), angle_rad.cos(),  0.0, 0.5,
-        0.0,             0.0,              1.0, 0.0,
-        0.0,             0.0,              0.0, 1.0,
-    );
-
-    #[rustfmt::skip]
-    let joint_1_to_body_matrix = Matrix4::new(
-        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
-        angle_rad.sin(), angle_rad.cos(),  0.0, 0.5,
-        0.0,             0.0,              1.0, 0.0,
-        0.0,             0.0,              0.0, 1.0,
-    );
-    let expected = joint_1_to_body_matrix * joint_2_to_joint_1_matrix;
-    assert_eq!(expected, joint_2_to_body_matrix);
-
-    // Push the actuators out
-    let angle_joint_1_z_deg = 30.0;
-    let angle_joint_1_z_rad = angle_joint_1_z_deg * (PI / 180.0);
-    let msg = (
-        JointState::new(angle_joint_1_z_rad, None, None, None),
-        ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
-    );
-    let _ = sender1.send(msg).unwrap();
-    let _ = hardware_actuator1
-        .update_sender
-        .unwrap()
-        .send(hardware_actuator1.id.unwrap())
-        .unwrap();
-
-    // | 1.0 0.0      0.0      0.0 |
-    // | 0.0 cos(30)  -sin(30) 0.5 |
-    // | 0.0 sin(30)  cos(30)  0.0 |
-    // | 0.0 0.0      0.0      1.0 |
-    #[rustfmt::skip]
-    let rotation_x = Matrix4::new(
-        angle_joint_1_z_rad.cos(), -angle_joint_1_z_rad.sin(), 0.0, 0.0,
-        angle_joint_1_z_rad.sin(), angle_joint_1_z_rad.cos(),  0.0, 0.0,
-        0.0,                       0.0,                        1.0, 0.0,
-        0.0,                       0.0,                        0.0, 1.0,
-    );
-
-    // | cos(30) -sin(30) 0.0 1.0 |
-    // | sin(30) cos(30)  0.0 0.5 |
-    // | 0.0     0.0      1.0 0.0 |
-    // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
-    let angle_rad = angle_deg * (PI / 180.0);
-
-    #[rustfmt::skip]
-    let original = Matrix4::new(
-        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
-        angle_rad.sin(),  angle_rad.cos(), 0.0, 0.5,
-        0.0,              0.0,             1.0, 0.0,
-        0.0,              0.0,             0.0, 1.0,
-    );
-
-    let joint_1_to_body_matrix = rotation_x * original;
-
-    let angle_joint_2_y_deg = 30.0;
-    let angle_joint_2_y_rad = angle_joint_2_y_deg * (PI / 180.0);
-    let msg = (
-        JointState::new(angle_joint_2_y_deg, None, None, None),
-        ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
-    );
-    let _ = sender2.send(msg).unwrap();
-    let _ = hardware_actuator2
-        .update_sender
-        .unwrap()
-        .send(hardware_actuator2.id.unwrap())
-        .unwrap();
-
-    // | cos(30)  0.0 sin(30) 0.0 |
-    // | 0.0      1.0 0.0     0.0 |
-    // | -sin(30) 0.0 cos(30) 0.0 |
-    // | 0.0      0.0 0.0     1.0 |
-    #[rustfmt::skip]
-    let rotation_y = Matrix4::new(
-        angle_joint_2_y_rad.cos(),  0.0,  angle_joint_2_y_rad.sin(), 0.0,
-        0.0,                        1.0,  0.0,                       0.0,
-        -angle_joint_2_y_rad.sin(), 0.0, angle_joint_2_y_rad.cos(),  0.0,
-        0.0,                        0.0, 0.0,                        1.0,
-    );
-
-    // | cos(60) -sin(60) 0.0 1.0 |
-    // | sin(60) cos(60)  0.0 0.5 |
-    // | 0.0     0.0      1.0 0.0 |
-    // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
-    let angle_rad = (angle_deg + 30.0) * (PI / 180.0);
-
-    #[rustfmt::skip]
-    let original = Matrix4::new(
-        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
-        angle_rad.sin(),  angle_rad.cos(), 0.0, 0.5,
-        0.0,              0.0,             1.0, 0.0,
-        0.0,              0.0,             0.0, 1.0,
-    );
-
-    let joint_2_to_joint_1_matrix = rotation_y * original;
-    let expected = joint_1_to_body_matrix * joint_2_to_joint_1_matrix;
-
-    // Allow some time to ensure the task is not processed
-    std::thread::sleep(Duration::from_millis(20));
-
-    let joint_2_to_body = model.get_homogeneous_transform_to_body(&id_joint_2);
-    assert!(joint_2_to_body.is_ok());
-    let joint_2_to_body_matrix = joint_2_to_body.unwrap();
-
-    assert_eq!(expected, joint_2_to_body_matrix);
+    let expected = rotation_x * expected_no_movement;
+    let mut expected_it = expected.iter();
+    let mut actuator_to_body_it = actuator_to_body_matrix.iter();
+    loop {
+        match (expected_it.next(), actuator_to_body_it.next()) {
+            (Some(a), Some(b)) => {
+                assert!(
+                    (*a).approx_eq(
+                        *b,
+                        F64Margin {
+                            ulps: 2,
+                            epsilon: 1e-6
+                        }
+                    ),
+                    "Expected {:.5} and {:.5} to be equal within 2 ulps or 1e-6",
+                    *a,
+                    *b
+                );
+            }
+            (None, None) => break,
+            _ => assert!(false),
+        }
+    }
 }
 
 #[test]
@@ -5377,17 +4476,17 @@ fn when_getting_homogeneous_transform_to_parent_with_revolute_y_motion_should_re
     // | sin(30) cos(30)  0.0 0.5 |
     // | 0.0     0.0      1.0 0.0 |
     // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
+    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
     let angle_rad = angle_deg * (PI / 180.0);
 
     #[rustfmt::skip]
-    let expected = Matrix4::new(
+    let expected_without_motion = Matrix4::new(
         angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
         angle_rad.sin(),  angle_rad.cos(), 0.0, 0.5,
         0.0,              0.0,             1.0, 0.0,
         0.0,              0.0,             0.0, 1.0,
     );
-    assert_eq!(expected, actuator_to_body_matrix);
+    assert_eq!(expected_without_motion, actuator_to_body_matrix);
 
     // Push the actuator out
     let angle_y_deg = 30.0;
@@ -5424,23 +4523,29 @@ fn when_getting_homogeneous_transform_to_parent_with_revolute_y_motion_should_re
         0.0,                0.0, 0.0,               1.0,
     );
 
-    // | cos(60) -sin(60) 0.0 1.0 |
-    // | sin(60) cos(60)  0.0 0.5 |
-    // | 0.0     0.0      1.0 0.0 |
-    // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
-    let angle_rad = (angle_deg + 30.0) * (PI / 180.0);
-
-    #[rustfmt::skip]
-    let original = Matrix4::new(
-        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
-        angle_rad.sin(),  angle_rad.cos(), 0.0, 0.5,
-        0.0,              0.0,             1.0, 0.0,
-        0.0,              0.0,             0.0, 1.0,
-    );
-
-    let expected = rotation_y * original;
-    assert_eq!(expected, actuator_to_body_matrix);
+    let expected = rotation_y * expected_without_motion;
+    let mut expected_it = expected.iter();
+    let mut actuator_to_body_it = actuator_to_body_matrix.iter();
+    loop {
+        match (expected_it.next(), actuator_to_body_it.next()) {
+            (Some(a), Some(b)) => {
+                assert!(
+                    (*a).approx_eq(
+                        *b,
+                        F64Margin {
+                            ulps: 2,
+                            epsilon: 1e-6
+                        }
+                    ),
+                    "Expected {:.5} and {:.5} to be equal within 2 ulps or 1e-6",
+                    *a,
+                    *b
+                );
+            }
+            (None, None) => break,
+            _ => assert!(false),
+        }
+    }
 
     // Pull the actuator in
     let angle_y_deg = -30.0;
@@ -5471,381 +4576,35 @@ fn when_getting_homogeneous_transform_to_parent_with_revolute_y_motion_should_re
     // | 0.0       0.0 0.0      1.0 |
     #[rustfmt::skip]
     let rotation_y = Matrix4::new(
-        angle_rad.cos(),  0.0,  angle_rad.sin(), 0.0,
-        0.0,              1.0,  0.0,             0.0,
-        -angle_rad.sin(), 0.0, angle_rad.cos(),  0.0,
-        0.0,              0.0, 0.0,              1.0,
+        angle_y_rad.cos(),  0.0, angle_y_rad.sin(), 0.0,
+        0.0,                1.0, 0.0,               0.0,
+        -angle_y_rad.sin(), 0.0, angle_y_rad.cos(), 0.0,
+        0.0,                0.0, 0.0,               1.0,
     );
 
-    // | cos(60) -sin(60) 0.0 1.0 |
-    // | sin(60) cos(60)  0.0 0.5 |
-    // | 0.0     0.0      1.0 0.0 |
-    // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
-    let angle_rad = (angle_deg + 30.0) * (PI / 180.0);
-
-    #[rustfmt::skip]
-    let original = Matrix4::new(
-        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
-        angle_rad.sin(),  angle_rad.cos(), 0.0, 0.5,
-        0.0,              0.0,             1.0, 0.0,
-        0.0,              0.0,             0.0, 1.0,
-    );
-
-    let expected = rotation_y * original;
-    assert_eq!(expected, actuator_to_body_matrix);
-}
-
-#[test]
-fn when_getting_homogeneous_transform_to_parent_with_revolute_z_and_revolute_x_motion_should_return_the_transform(
-) {
-    let mut model = MotionModel::new();
-    let body_id = add_body_to_model(&mut model).unwrap();
-
-    // Actuator 1
-    let (sender1, receiver1) = crossbeam_channel::unbounded();
-    let (cmd_sender1, _) = crossbeam_channel::unbounded();
-    let mut hardware_actuator1 = MockHardwareActuator {
-        receiver: receiver1,
-        sender: sender1.clone(),
-        command_sender: cmd_sender1,
-        update_sender: None,
-        id: None,
-    };
-    let change_processor = Box::new(HardwareChangeProcessor::new(1000));
-
-    let actuator_1 = Actuator::new(&mut hardware_actuator1, &change_processor).unwrap();
-    let id_joint_1 = add_actuated_joint_to_model(
-        &mut model,
-        &body_id,
-        DriveModulePosition::LeftFront,
-        FrameDofType::RevoluteZ,
-        actuator_1,
-    )
-    .unwrap();
-
-    // Actuator 2
-    let (sender2, receiver2) = crossbeam_channel::unbounded();
-    let (cmd_sender2, _) = crossbeam_channel::unbounded();
-    let mut hardware_actuator2 = MockHardwareActuator {
-        receiver: receiver2,
-        sender: sender2.clone(),
-        command_sender: cmd_sender2,
-        update_sender: None,
-        id: None,
-    };
-
-    let actuator_2 = Actuator::new(&mut hardware_actuator2, &change_processor).unwrap();
-    let id_joint_2 = add_actuated_joint_to_model(
-        &mut model,
-        &id_joint_1,
-        DriveModulePosition::LeftFront,
-        FrameDofType::RevoluteX,
-        actuator_2,
-    )
-    .unwrap();
-
-    // wheel to steering
-    let joint_2_to_body = model.get_homogeneous_transform_to_body(&id_joint_2);
-    assert!(joint_2_to_body.is_ok());
-
-    let joint_2_to_body_matrix = joint_2_to_body.unwrap();
-
-    // | cos(30) -sin(30) 0.0 1.0 |
-    // | sin(30) cos(30)  0.0 0.5 |
-    // | 0.0     0.0      1.0 0.0 |
-    // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
-    let angle_rad = angle_deg * (PI / 180.0);
-
-    #[rustfmt::skip]
-    let joint_2_to_joint_1_matrix = Matrix4::new(
-        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
-        angle_rad.sin(), angle_rad.cos(),  0.0, 0.5,
-        0.0,             0.0,              1.0, 0.0,
-        0.0,             0.0,              0.0, 1.0,
-    );
-
-    #[rustfmt::skip]
-    let joint_1_to_body_matrix = Matrix4::new(
-        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
-        angle_rad.sin(), angle_rad.cos(),  0.0, 0.5,
-        0.0,             0.0,              1.0, 0.0,
-        0.0,             0.0,              0.0, 1.0,
-    );
-    let expected = joint_1_to_body_matrix * joint_2_to_joint_1_matrix;
-    assert_eq!(expected, joint_2_to_body_matrix);
-
-    // Push the actuators out
-    let angle_joint_1_z_deg = 30.0;
-    let angle_joint_1_z_rad = angle_joint_1_z_deg * (PI / 180.0);
-    let msg = (
-        JointState::new(angle_joint_1_z_rad, None, None, None),
-        ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
-    );
-    let _ = sender1.send(msg).unwrap();
-    let _ = hardware_actuator1
-        .update_sender
-        .unwrap()
-        .send(hardware_actuator1.id.unwrap())
-        .unwrap();
-
-    // | 1.0 0.0      0.0      0.0 |
-    // | 0.0 cos(30)  -sin(30) 0.5 |
-    // | 0.0 sin(30)  cos(30)  0.0 |
-    // | 0.0 0.0      0.0      1.0 |
-    #[rustfmt::skip]
-    let rotation_x = Matrix4::new(
-        angle_joint_1_z_rad.cos(), -angle_joint_1_z_rad.sin(), 0.0, 0.0,
-        angle_joint_1_z_rad.sin(), angle_joint_1_z_rad.cos(),  0.0, 0.0,
-        0.0,                       0.0,                        1.0, 0.0,
-        0.0,                       0.0,                        0.0, 1.0,
-    );
-
-    // | cos(30) -sin(30) 0.0 1.0 |
-    // | sin(30) cos(30)  0.0 0.5 |
-    // | 0.0     0.0      1.0 0.0 |
-    // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
-    let angle_rad = angle_deg * (PI / 180.0);
-
-    #[rustfmt::skip]
-    let original = Matrix4::new(
-        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
-        angle_rad.sin(),  angle_rad.cos(), 0.0, 0.5,
-        0.0,              0.0,             1.0, 0.0,
-        0.0,              0.0,             0.0, 1.0,
-    );
-
-    let joint_1_to_body_matrix = rotation_x * original;
-
-    let angle_joint_2_y_deg = 30.0;
-    let angle_joint_2_y_rad = angle_joint_2_y_deg * (PI / 180.0);
-    let msg = (
-        JointState::new(angle_joint_2_y_deg, None, None, None),
-        ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
-    );
-    let _ = sender2.send(msg).unwrap();
-    let _ = hardware_actuator2
-        .update_sender
-        .unwrap()
-        .send(hardware_actuator2.id.unwrap())
-        .unwrap();
-
-    // | cos(30)  0.0 sin(30) 0.0 |
-    // | 0.0      1.0 0.0     0.0 |
-    // | -sin(30) 0.0 cos(30) 0.0 |
-    // | 0.0      0.0 0.0     1.0 |
-    #[rustfmt::skip]
-    let rotation_y = Matrix4::new(
-        angle_joint_2_y_rad.cos(),  0.0,  angle_joint_2_y_rad.sin(), 0.0,
-        0.0,                        1.0,  0.0,                       0.0,
-        -angle_joint_2_y_rad.sin(), 0.0, angle_joint_2_y_rad.cos(),  0.0,
-        0.0,                        0.0, 0.0,                        1.0,
-    );
-
-    // | cos(60) -sin(60) 0.0 1.0 |
-    // | sin(60) cos(60)  0.0 0.5 |
-    // | 0.0     0.0      1.0 0.0 |
-    // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
-    let angle_rad = (angle_deg + 30.0) * (PI / 180.0);
-
-    #[rustfmt::skip]
-    let original = Matrix4::new(
-        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
-        angle_rad.sin(),  angle_rad.cos(), 0.0, 0.5,
-        0.0,              0.0,             1.0, 0.0,
-        0.0,              0.0,             0.0, 1.0,
-    );
-
-    let joint_2_to_joint_1_matrix = rotation_y * original;
-    let expected = joint_1_to_body_matrix * joint_2_to_joint_1_matrix;
-
-    // Allow some time to ensure the task is not processed
-    std::thread::sleep(Duration::from_millis(20));
-
-    let joint_2_to_body = model.get_homogeneous_transform_to_body(&id_joint_2);
-    assert!(joint_2_to_body.is_ok());
-    let joint_2_to_body_matrix = joint_2_to_body.unwrap();
-
-    assert_eq!(expected, joint_2_to_body_matrix);
-}
-
-#[test]
-fn when_getting_homogeneous_transform_to_parent_with_revolute_z_and_revolute_y_motion_should_return_the_transform(
-) {
-    let mut model = MotionModel::new();
-    let body_id = add_body_to_model(&mut model).unwrap();
-
-    // Actuator 1
-    let (sender1, receiver1) = crossbeam_channel::unbounded();
-    let (cmd_sender1, _) = crossbeam_channel::unbounded();
-    let mut hardware_actuator1 = MockHardwareActuator {
-        receiver: receiver1,
-        sender: sender1.clone(),
-        command_sender: cmd_sender1,
-        update_sender: None,
-        id: None,
-    };
-    let change_processor = Box::new(HardwareChangeProcessor::new(1000));
-
-    let actuator_1 = Actuator::new(&mut hardware_actuator1, &change_processor).unwrap();
-    let id_joint_1 = add_actuated_joint_to_model(
-        &mut model,
-        &body_id,
-        DriveModulePosition::LeftFront,
-        FrameDofType::RevoluteZ,
-        actuator_1,
-    )
-    .unwrap();
-
-    // Actuator 2
-    let (sender2, receiver2) = crossbeam_channel::unbounded();
-    let (cmd_sender2, _) = crossbeam_channel::unbounded();
-    let mut hardware_actuator2 = MockHardwareActuator {
-        receiver: receiver2,
-        sender: sender2.clone(),
-        command_sender: cmd_sender2,
-        update_sender: None,
-        id: None,
-    };
-
-    let actuator_2 = Actuator::new(&mut hardware_actuator2, &change_processor).unwrap();
-    let id_joint_2 = add_actuated_joint_to_model(
-        &mut model,
-        &id_joint_1,
-        DriveModulePosition::LeftFront,
-        FrameDofType::RevoluteY,
-        actuator_2,
-    )
-    .unwrap();
-
-    // wheel to steering
-    let joint_2_to_body = model.get_homogeneous_transform_to_body(&id_joint_2);
-    assert!(joint_2_to_body.is_ok());
-
-    let joint_2_to_body_matrix = joint_2_to_body.unwrap();
-
-    // | cos(30) -sin(30) 0.0 1.0 |
-    // | sin(30) cos(30)  0.0 0.5 |
-    // | 0.0     0.0      1.0 0.0 |
-    // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
-    let angle_rad = angle_deg * (PI / 180.0);
-
-    #[rustfmt::skip]
-    let joint_2_to_joint_1_matrix = Matrix4::new(
-        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
-        angle_rad.sin(), angle_rad.cos(),  0.0, 0.5,
-        0.0,             0.0,              1.0, 0.0,
-        0.0,             0.0,              0.0, 1.0,
-    );
-
-    #[rustfmt::skip]
-    let joint_1_to_body_matrix = Matrix4::new(
-        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
-        angle_rad.sin(), angle_rad.cos(),  0.0, 0.5,
-        0.0,             0.0,              1.0, 0.0,
-        0.0,             0.0,              0.0, 1.0,
-    );
-    let expected = joint_1_to_body_matrix * joint_2_to_joint_1_matrix;
-    assert_eq!(expected, joint_2_to_body_matrix);
-
-    // Push the actuators out
-    let angle_joint_1_z_deg = 30.0;
-    let angle_joint_1_z_rad = angle_joint_1_z_deg * (PI / 180.0);
-    let msg = (
-        JointState::new(angle_joint_1_z_rad, None, None, None),
-        ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
-    );
-    let _ = sender1.send(msg).unwrap();
-    let _ = hardware_actuator1
-        .update_sender
-        .unwrap()
-        .send(hardware_actuator1.id.unwrap())
-        .unwrap();
-
-    // | 1.0 0.0      0.0      0.0 |
-    // | 0.0 cos(30)  -sin(30) 0.5 |
-    // | 0.0 sin(30)  cos(30)  0.0 |
-    // | 0.0 0.0      0.0      1.0 |
-    #[rustfmt::skip]
-    let rotation_x = Matrix4::new(
-        angle_joint_1_z_rad.cos(), -angle_joint_1_z_rad.sin(), 0.0, 0.0,
-        angle_joint_1_z_rad.sin(), angle_joint_1_z_rad.cos(),  0.0, 0.0,
-        0.0,                       0.0,                        1.0, 0.0,
-        0.0,                       0.0,                        0.0, 1.0,
-    );
-
-    // | cos(30) -sin(30) 0.0 1.0 |
-    // | sin(30) cos(30)  0.0 0.5 |
-    // | 0.0     0.0      1.0 0.0 |
-    // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
-    let angle_rad = angle_deg * (PI / 180.0);
-
-    #[rustfmt::skip]
-    let original = Matrix4::new(
-        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
-        angle_rad.sin(),  angle_rad.cos(), 0.0, 0.5,
-        0.0,              0.0,             1.0, 0.0,
-        0.0,              0.0,             0.0, 1.0,
-    );
-
-    let joint_1_to_body_matrix = rotation_x * original;
-
-    let angle_joint_2_y_deg = 30.0;
-    let angle_joint_2_y_rad = angle_joint_2_y_deg * (PI / 180.0);
-    let msg = (
-        JointState::new(angle_joint_2_y_deg, None, None, None),
-        ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
-    );
-    let _ = sender2.send(msg).unwrap();
-    let _ = hardware_actuator2
-        .update_sender
-        .unwrap()
-        .send(hardware_actuator2.id.unwrap())
-        .unwrap();
-
-    // | cos(30)  0.0 sin(30) 0.0 |
-    // | 0.0      1.0 0.0     0.0 |
-    // | -sin(30) 0.0 cos(30) 0.0 |
-    // | 0.0      0.0 0.0     1.0 |
-    #[rustfmt::skip]
-    let rotation_y = Matrix4::new(
-        angle_joint_2_y_rad.cos(),  0.0,  angle_joint_2_y_rad.sin(), 0.0,
-        0.0,                        1.0,  0.0,                       0.0,
-        -angle_joint_2_y_rad.sin(), 0.0, angle_joint_2_y_rad.cos(),  0.0,
-        0.0,                        0.0, 0.0,                        1.0,
-    );
-
-    // | cos(60) -sin(60) 0.0 1.0 |
-    // | sin(60) cos(60)  0.0 0.5 |
-    // | 0.0     0.0      1.0 0.0 |
-    // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
-    let angle_rad = (angle_deg + 30.0) * (PI / 180.0);
-
-    #[rustfmt::skip]
-    let original = Matrix4::new(
-        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
-        angle_rad.sin(),  angle_rad.cos(), 0.0, 0.5,
-        0.0,              0.0,             1.0, 0.0,
-        0.0,              0.0,             0.0, 1.0,
-    );
-
-    let joint_2_to_joint_1_matrix = rotation_y * original;
-    let expected = joint_1_to_body_matrix * joint_2_to_joint_1_matrix;
-
-    // Allow some time to ensure the task is not processed
-    std::thread::sleep(Duration::from_millis(20));
-
-    let joint_2_to_body = model.get_homogeneous_transform_to_body(&id_joint_2);
-    assert!(joint_2_to_body.is_ok());
-    let joint_2_to_body_matrix = joint_2_to_body.unwrap();
-
-    assert_eq!(expected, joint_2_to_body_matrix);
+    let expected = rotation_y * expected_without_motion;
+    let mut expected_it = expected.iter();
+    let mut actuator_to_body_it = actuator_to_body_matrix.iter();
+    loop {
+        match (expected_it.next(), actuator_to_body_it.next()) {
+            (Some(a), Some(b)) => {
+                assert!(
+                    (*a).approx_eq(
+                        *b,
+                        F64Margin {
+                            ulps: 2,
+                            epsilon: 1e-6
+                        }
+                    ),
+                    "Expected {:.5} and {:.5} to be equal within 2 ulps or 1e-6",
+                    *a,
+                    *b
+                );
+            }
+            (None, None) => break,
+            _ => assert!(false),
+        }
+    }
 }
 
 #[test]
@@ -5875,7 +4634,6 @@ fn when_getting_homogeneous_transform_to_parent_with_revolute_z_motion_should_re
     )
     .unwrap();
 
-    // wheel to steering
     let actuator_to_body = model.get_homogeneous_transform_to_parent(&id);
     assert!(actuator_to_body.is_ok());
 
@@ -5885,21 +4643,23 @@ fn when_getting_homogeneous_transform_to_parent_with_revolute_z_motion_should_re
     // | sin(30) cos(30)  0.0 0.5 |
     // | 0.0     0.0      1.0 0.0 |
     // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
+    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
     let angle_rad = angle_deg * (PI / 180.0);
 
     #[rustfmt::skip]
-    let expected = Matrix4::new(
+    let expected_without_motion = Matrix4::new(
         angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
         angle_rad.sin(),  angle_rad.cos(), 0.0, 0.5,
         0.0,              0.0,             1.0, 0.0,
         0.0,              0.0,             0.0, 1.0,
     );
-    assert_eq!(expected, actuator_to_body_matrix);
+    assert_eq!(expected_without_motion, actuator_to_body_matrix);
 
     // Push the actuator out
+    let angle_z_deg = 30.0;
+    let angle_z_rad = angle_z_deg * (PI / 180.0);
     let msg = (
-        JointState::new(30.0 * (PI / 180.0), None, None, None),
+        JointState::new(angle_z_rad, None, None, None),
         ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
     );
     let _ = sender.send(msg).unwrap();
@@ -5918,25 +4678,43 @@ fn when_getting_homogeneous_transform_to_parent_with_revolute_z_motion_should_re
 
     let actuator_to_body_matrix = actuator_to_body.unwrap();
 
-    // | cos(60) -sin(60) 0.0 1.0 |
-    // | sin(60) cos(60)  0.0 0.5 |
-    // | 0.0     0.0      1.0 0.0 |
-    // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
-    let angle_rad = (angle_deg + 30.0) * (PI / 180.0);
-
     #[rustfmt::skip]
-    let expected = Matrix4::new(
-        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
-        angle_rad.sin(),  angle_rad.cos(), 0.0, 0.5,
-        0.0,              0.0,             1.0, 0.0,
-        0.0,              0.0,             0.0, 1.0,
+    let rotation_z = Matrix4::new(
+        angle_z_rad.cos(), -angle_z_rad.sin(), 0.0, 0.0,
+        angle_z_rad.sin(),  angle_z_rad.cos(), 0.0, 0.0,
+        0.0,                0.0,               1.0, 0.0,
+        0.0,                0.0,               0.0, 1.0,
     );
-    assert_eq!(expected, actuator_to_body_matrix);
+
+    let expected = rotation_z * expected_without_motion;
+    let mut expected_it = expected.iter();
+    let mut actuator_to_body_it = actuator_to_body_matrix.iter();
+    loop {
+        match (expected_it.next(), actuator_to_body_it.next()) {
+            (Some(a), Some(b)) => {
+                assert!(
+                    (*a).approx_eq(
+                        *b,
+                        F64Margin {
+                            ulps: 2,
+                            epsilon: 1e-6
+                        }
+                    ),
+                    "Expected {:.5} and {:.5} to be equal within 2 ulps or 1e-6",
+                    *a,
+                    *b
+                );
+            }
+            (None, None) => break,
+            _ => assert!(false),
+        }
+    }
 
     // Pull the actuator in
+    let angle_z_deg = -30.0;
+    let angle_z_rad = angle_z_deg * (PI / 180.0);
     let msg = (
-        JointState::new(-60.0 * (PI / 180.0), None, None, None),
+        JointState::new(angle_z_rad, None, None, None),
         ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
     );
     let _ = sender.send(msg).unwrap();
@@ -5955,21 +4733,37 @@ fn when_getting_homogeneous_transform_to_parent_with_revolute_z_motion_should_re
 
     let actuator_to_body_matrix = actuator_to_body.unwrap();
 
-    // | cos(-30) -sin(-30) 0.0 1.0 |
-    // | sin(-30) cos(-30)  0.0 0.5 |
-    // | 0.0     0.0      1.0 0.0 |
-    // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_for(DriveModulePosition::LeftFront);
-    let angle_rad = (angle_deg - 60.0) * (PI / 180.0);
-
     #[rustfmt::skip]
-    let expected = Matrix4::new(
-        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
-        angle_rad.sin(),  angle_rad.cos(), 0.0, 0.5,
-        0.0,              0.0,             1.0, 0.0,
-        0.0,              0.0,             0.0, 1.0,
+    let rotation_z = Matrix4::new(
+        angle_z_rad.cos(), -angle_z_rad.sin(), 0.0, 0.0,
+        angle_z_rad.sin(),  angle_z_rad.cos(), 0.0, 0.0,
+        0.0,                0.0,               1.0, 0.0,
+        0.0,                0.0,               0.0, 1.0,
     );
-    assert_eq!(expected, actuator_to_body_matrix);
+
+    let expected = rotation_z * expected_without_motion;
+    let mut expected_it = expected.iter();
+    let mut actuator_to_body_it = actuator_to_body_matrix.iter();
+    loop {
+        match (expected_it.next(), actuator_to_body_it.next()) {
+            (Some(a), Some(b)) => {
+                assert!(
+                    (*a).approx_eq(
+                        *b,
+                        F64Margin {
+                            ulps: 2,
+                            epsilon: 1e-6
+                        }
+                    ),
+                    "Expected {:.5} and {:.5} to be equal within 2 ulps or 1e-6",
+                    *a,
+                    *b,
+                );
+            }
+            (None, None) => break,
+            _ => assert!(false),
+        }
+    }
 }
 
 #[test]

@@ -492,9 +492,16 @@ pub struct MotionModel {
 }
 
 impl MotionModel {
-    /// Adds the chassis element that represents a non-actuated joint for the robot.
+    /// Adds the chassis element that represents an actuated joint for the robot.
     ///
-    /// It is assumed that the body is the first element to be added.
+    /// Actuators are used to move chassis elements relative to their parent element.
+    /// As such it is assumed that the actuator changes the position of the child element
+    /// relative to the parent element. To visualize this you can assume that the presence
+    /// of an actuator adds an intermediate reference frame between the parent element and
+    /// the child element. When the actuator is in the zero position the actuator frame in
+    /// in the same position and orientation as the parent frame. On movement the actuator
+    /// frame changes either position or orientation, but not both at the same time as an
+    /// actuator only has 1 degree of freedom.
     ///
     /// ## Parameters
     ///
@@ -704,7 +711,6 @@ impl MotionModel {
     pub fn add_static_chassis_element(
         &mut self,
         name: String,
-        degree_of_freedom: FrameDofType,
         parent_id: FrameID,
         position_relative_to_parent: Translation3<f64>,
         orientation_relative_to_parent: UnitQuaternion<f64>,
@@ -725,7 +731,7 @@ impl MotionModel {
             });
         }
 
-        let reference_frame = ReferenceFrame::new(name.clone(), degree_of_freedom, false);
+        let reference_frame = ReferenceFrame::new(name.clone(), FrameDofType::Static, false);
 
         self.add_element_unchecked(
             reference_frame,
@@ -741,6 +747,15 @@ impl MotionModel {
     }
 
     /// Adds a steering element to the robot.
+    ///
+    /// Actuators are used to move chassis elements relative to their parent element.
+    /// As such it is assumed that the actuator changes the position of the child element
+    /// relative to the parent element. To visualize this you can assume that the presence
+    /// of an actuator adds an intermediate reference frame between the parent element and
+    /// the child element. When the actuator is in the zero position the actuator frame in
+    /// in the same position and orientation as the parent frame. On movement the actuator
+    /// frame changes either position or orientation, but not both at the same time as an
+    /// actuator only has 1 degree of freedom.
     ///
     /// ## Parameters
     ///
@@ -895,6 +910,15 @@ impl MotionModel {
 
     /// Adds a new wheel element to the robot
     ///
+    /// Actuators are used to move chassis elements relative to their parent element.
+    /// As such it is assumed that the actuator changes the position of the child element
+    /// relative to the parent element. To visualize this you can assume that the presence
+    /// of an actuator adds an intermediate reference frame between the parent element and
+    /// the child element. When the actuator is in the zero position the actuator frame in
+    /// in the same position and orientation as the parent frame. On movement the actuator
+    /// frame changes either position or orientation, but not both at the same time as an
+    /// actuator only has 1 degree of freedom.
+    ///
     /// ## Parameters
     ///
     /// * 'name' - The name of the new wheel element
@@ -983,6 +1007,15 @@ impl MotionModel {
     }
 
     /// Returns the [Actuator] for the given joint
+    ///
+    /// Actuators are used to move chassis elements relative to their parent element.
+    /// As such it is assumed that the actuator changes the position of the child element
+    /// relative to the parent element. To visualize this you can assume that the presence
+    /// of an actuator adds an intermediate reference frame between the parent element and
+    /// the child element. When the actuator is in the zero position the actuator frame in
+    /// in the same position and orientation as the parent frame. On movement the actuator
+    /// frame changes either position or orientation, but not both at the same time as an
+    /// actuator only has 1 degree of freedom.
     ///
     /// ## Parameters
     ///
@@ -1175,12 +1208,17 @@ impl MotionModel {
                 .reference_frames
                 .get_homogeneous_transform_to_parent(child_element.id())?;
 
-            let motion_transform = match self.actuators.get(parent_element.id()) {
-                None => Matrix4::<f64>::identity(),
-                Some(a) => self.transform_for_motion(a, dof),
+            let actuator_option = self.actuators.get(child_element.id());
+            let current_transform = if actuator_option.is_some() {
+                let local_transform =
+                    self.transform_for_motion(actuator_option.unwrap(), dof, transform_result);
+
+                local_transform.to_homogeneous()
+            } else {
+                transform_result.to_homogeneous()
             };
 
-            transform = motion_transform * (transform_result.to_homogeneous()) * transform;
+            transform = current_transform * transform;
 
             child_element = parent_element;
             parent_element = self.reference_frames.get_parent(child_element.id())?;
@@ -1223,12 +1261,15 @@ impl MotionModel {
 
         let parent_frame = self.reference_frames.get_parent(starting_element)?;
 
-        let motion_transform = match self.actuators.get(parent_frame.id()) {
-            None => Matrix4::<f64>::identity(),
-            Some(a) => self.transform_for_motion(a, dof),
-        };
+        let actuator_option = self.actuators.get(starting_element);
+        if actuator_option.is_some() {
+            let transform =
+                self.transform_for_motion(actuator_option.unwrap(), dof, transform_result);
 
-        Ok(motion_transform * (transform_result.to_homogeneous()))
+            return Ok(transform.to_homogeneous());
+        } else {
+            return Ok(transform_result.to_homogeneous());
+        }
     }
 
     /// Returns the homogeneous transform matrix from the given reference frame to the
@@ -1419,19 +1460,19 @@ impl MotionModel {
     pub fn is_valid(&self) -> (bool, Vec<String>) {
         let mut result: Vec<String> = vec![];
 
-        // There should be at least three wheels
+        // There should be at least two wheels
         let wheels_result = self.get_wheels();
         if wheels_result.is_err() {
             result.push(String::from(
-                "Swerve model needs at least 3 wheels. Found 0 wheels.",
+                "Swerve model needs at least 2 wheel. Found 0 wheels.",
             ));
             return (false, result);
         }
 
         let wheels = wheels_result.unwrap();
-        if wheels.len() < 3 {
+        if wheels.len() < 2 {
             result.push(format!(
-                "Swerve model needs at least 3 wheels. Found {} wheels.",
+                "Swerve model needs at least 2 wheels. Found {} wheels.",
                 wheels.len()
             ));
         }
@@ -1440,18 +1481,18 @@ impl MotionModel {
             // Each wheel rotates in the xz-plane
             let wheel_dof_result = self.get_frame_degree_of_freedom(w);
             if wheel_dof_result.is_err() {
-                result.push(format!("Swerve model expects wheels to rotate around the y-axis. Wheel {} has no degrees of freedom", w))
+                result.push(format!("Swerve model expects wheels to rotate around the y-axis. Wheel {} has no degrees of freedom.", w))
             } else {
                 let dof = wheel_dof_result.unwrap();
                 if dof != FrameDofType::RevoluteY {
-                    result.push(format!("Swerve model expects wheels to rotate around the y-axis. Steering joint {} has degree of freedom: {:#?}", w, dof));
+                    result.push(format!("Swerve model expects wheels to rotate around the y-axis. Steering joint {} has degree of freedom: {:#?}.", w, dof));
                 }
             }
 
             // Each wheel should have one, and exactly one steering joint
             let steering_joint_option = self.wheel_to_steering_frame.get(w);
             if steering_joint_option.is_none() {
-                result.push(format!("Swerve model expects one steering frame for each wheel. Wheel {} does not have a steering frame", w));
+                result.push(format!("Swerve model expects one steering frame for each wheel. Wheel {} does not have a steering frame.", w));
                 continue;
             }
 
@@ -1460,12 +1501,18 @@ impl MotionModel {
             // Each steering joint has a z-rotation
             let steering_joint_dof_result = self.get_frame_degree_of_freedom(steering_joint);
             if steering_joint_dof_result.is_err() {
-                result.push(format!("Swerve model expects steering joints to rotate around the z-axis. Steering joint {} has no degrees of freedom", steering_joint));
+                result.push(format!("Swerve model expects steering joints to rotate around the z-axis. Steering joint {} has no degrees of freedom.", steering_joint));
             } else {
                 let dof = steering_joint_dof_result.unwrap();
                 if dof != FrameDofType::RevoluteZ {
-                    result.push(format!("Swerve model expects steering joints to rotate around the z-axis. Steering joint {} has degree of freedom: {:#?}", steering_joint, dof));
+                    result.push(format!("Swerve model expects steering joints to rotate around the z-axis. Steering joint {} has degree of freedom: {:#?}.", steering_joint, dof));
                 }
+            }
+        }
+
+        for (key, value) in self.steering_frame_to_wheel.iter() {
+            if value.is_none() {
+                result.push(format!("Swerve model expects each steering joint to be connected to a wheel. Steering joint {} is not connected to a wheel.", key));
             }
         }
 
@@ -1500,55 +1547,68 @@ impl MotionModel {
         self.reference_frames.number_of_wheels()
     }
 
-    fn transform_for_motion(&self, actuator: &Actuator, dof: FrameDofType) -> Matrix4<f64> {
+    fn transform_for_motion(
+        &self,
+        actuator: &Actuator,
+        dof: FrameDofType,
+        transform: &Isometry3<f64>,
+    ) -> Isometry3<f64> {
         match dof {
-            FrameDofType::Static => Matrix4::<f64>::identity(),
-            FrameDofType::RevoluteX => self.transform_for_revolute_x_motion(actuator),
-            FrameDofType::RevoluteY => self.transform_for_revolute_y_motion(actuator),
-            FrameDofType::RevoluteZ => self.transform_for_revolute_z_motion(actuator),
-            FrameDofType::PrismaticX => self.transform_for_prismatic_x_motion(actuator),
-            FrameDofType::PrismaticY => self.transform_for_prismatic_y_motion(actuator),
-            FrameDofType::PrismaticZ => self.transform_for_prismatic_z_motion(actuator),
+            FrameDofType::RevoluteX => self.transform_for_revolute_x_motion(actuator, transform),
+            FrameDofType::RevoluteY => self.transform_for_revolute_y_motion(actuator, transform),
+            FrameDofType::RevoluteZ => self.transform_for_revolute_z_motion(actuator, transform),
+            FrameDofType::PrismaticX => self.transform_for_prismatic_x_motion(actuator, transform),
+            FrameDofType::PrismaticY => self.transform_for_prismatic_y_motion(actuator, transform),
+            FrameDofType::PrismaticZ => self.transform_for_prismatic_z_motion(actuator, transform),
+            _ => Isometry3::identity(),
         }
     }
 
-    fn transform_for_prismatic_x_motion(&self, actuator: &Actuator) -> Matrix4<f64> {
-        let mut result = Matrix4::<f64>::identity();
-
+    fn transform_for_prismatic_x_motion(
+        &self,
+        actuator: &Actuator,
+        transform: &Isometry3<f64>,
+    ) -> Isometry3<f64> {
         let distance_moved = match actuator.get_value() {
             Ok(v) => v.get_position(),
             Err(_) => 0.0,
         };
-        result[(0, 3)] = distance_moved;
-
-        result
+        let trans = Translation3::new(distance_moved, 0.0, 0.0);
+        trans * transform
     }
 
-    fn transform_for_prismatic_y_motion(&self, actuator: &Actuator) -> Matrix4<f64> {
-        let mut result = Matrix4::<f64>::identity();
-
+    fn transform_for_prismatic_y_motion(
+        &self,
+        actuator: &Actuator,
+        transform: &Isometry3<f64>,
+    ) -> Isometry3<f64> {
         let distance_moved = match actuator.get_value() {
             Ok(v) => v.get_position(),
             Err(_) => 0.0,
         };
-        result[(1, 3)] = distance_moved;
-
-        result
+        let trans = Translation3::new(0.0, distance_moved, 0.0);
+        trans * transform
     }
 
-    fn transform_for_prismatic_z_motion(&self, actuator: &Actuator) -> Matrix4<f64> {
-        let mut result = Matrix4::<f64>::identity();
-
+    fn transform_for_prismatic_z_motion(
+        &self,
+        actuator: &Actuator,
+        transform: &Isometry3<f64>,
+    ) -> Isometry3<f64> {
         let distance_moved = match actuator.get_value() {
             Ok(v) => v.get_position(),
             Err(_) => 0.0,
         };
-        result[(2, 3)] = distance_moved;
 
-        result
+        let trans = Translation3::new(0.0, 0.0, distance_moved);
+        trans * transform
     }
 
-    fn transform_for_revolute_x_motion(&self, actuator: &Actuator) -> Matrix4<f64> {
+    fn transform_for_revolute_x_motion(
+        &self,
+        actuator: &Actuator,
+        transform: &Isometry3<f64>,
+    ) -> Isometry3<f64> {
         let mut result = Matrix4::<f64>::identity();
 
         let distance_rotated = match actuator.get_value() {
@@ -1562,15 +1622,15 @@ impl MotionModel {
         // [0    cos(θ)   -sin(θ)   ]
         // [0    sin(θ)    cos(θ)   ]
 
-        result[(1, 1)] = f64::cos(distance_rotated);
-        result[(1, 2)] = -f64::sin(distance_rotated);
-        result[(2, 1)] = f64::sin(distance_rotated);
-        result[(2, 2)] = f64::cos(distance_rotated);
-
-        result
+        let rotation = UnitQuaternion::from_axis_angle(&Vector3::x_axis(), distance_rotated);
+        rotation * transform
     }
 
-    fn transform_for_revolute_y_motion(&self, actuator: &Actuator) -> Matrix4<f64> {
+    fn transform_for_revolute_y_motion(
+        &self,
+        actuator: &Actuator,
+        transform: &Isometry3<f64>,
+    ) -> Isometry3<f64> {
         let mut result = Matrix4::<f64>::identity();
 
         let distance_rotated = match actuator.get_value() {
@@ -1584,15 +1644,15 @@ impl MotionModel {
         // [   0       1      0    ]
         // [-sin(θ)    0    cos(θ) ]
 
-        result[(0, 0)] = f64::cos(distance_rotated);
-        result[(0, 2)] = f64::sin(distance_rotated);
-        result[(2, 0)] = -f64::sin(distance_rotated);
-        result[(2, 2)] = f64::cos(distance_rotated);
-
-        result
+        let rotation = UnitQuaternion::from_axis_angle(&Vector3::y_axis(), distance_rotated);
+        rotation * transform
     }
 
-    fn transform_for_revolute_z_motion(&self, actuator: &Actuator) -> Matrix4<f64> {
+    fn transform_for_revolute_z_motion(
+        &self,
+        actuator: &Actuator,
+        transform: &Isometry3<f64>,
+    ) -> Isometry3<f64> {
         let mut result = Matrix4::<f64>::identity();
 
         let distance_rotated = match actuator.get_value() {
@@ -1605,11 +1665,7 @@ impl MotionModel {
         // [ cos(θ)   -sin(θ)   0 ]
         // [ sin(θ)    cos(θ)   0 ]
         // [   0         0      1 ]
-        result[(0, 0)] = f64::cos(distance_rotated);
-        result[(0, 1)] = -f64::sin(distance_rotated);
-        result[(1, 0)] = f64::sin(distance_rotated);
-        result[(1, 1)] = f64::cos(distance_rotated);
-
-        result
+        let rotation = UnitQuaternion::from_axis_angle(&Vector3::z_axis(), distance_rotated);
+        rotation * transform
     }
 }
