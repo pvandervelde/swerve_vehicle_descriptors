@@ -1285,22 +1285,8 @@ impl MotionModel {
             return Ok(Matrix4::<f64>::identity());
         }
 
-        let reference_frame = self.reference_frames.get_element(starting_element)?;
-        let dof = reference_frame.degree_of_freedom_kind();
-
-        let transform_result = self
-            .reference_frames
-            .get_homogeneous_transform_to_parent(starting_element)?;
-
-        let actuator_option = self.actuators.get(starting_element);
-        if actuator_option.is_some() {
-            let transform =
-                self.transform_for_motion(actuator_option.unwrap(), dof, transform_result);
-
-            return Ok(transform.to_homogeneous());
-        } else {
-            return Ok(transform_result.to_homogeneous());
-        }
+        let parent = self.get_parent(starting_element)?;
+        self.get_homogeneous_transform_to_ancestor(starting_element, parent)
     }
 
     /// Returns the [FrameID] of the parent of the given element.
