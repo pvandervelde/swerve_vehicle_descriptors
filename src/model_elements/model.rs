@@ -1163,7 +1163,7 @@ impl MotionModel {
             });
         }
 
-        Ok(from_transform_to_body * to_transform_to_body)
+        Ok(to_transform_to_body * from_transform_to_body)
     }
 
     /// Returns the homogeneous transform matrix from the given reference frame to the
@@ -1221,10 +1221,43 @@ impl MotionModel {
             transform = current_transform * transform;
 
             child_element = parent_element;
-            parent_element = self.reference_frames.get_parent(child_element.id())?;
+            if self
+                .reference_frames
+                .is_body(child_element.id())
+                .unwrap_or(true)
+            {
+                if child_element.id() == to {
+                    break;
+                } else {
+                    // We are at the end of the chain (aka, we have reached the body) but we haven't
+                    // reached the desired parent element. Something is wrong here.
+                    return Err(Error::MissingFrameElement { id: to.clone() });
+                }
+            } else {
+                parent_element = self.reference_frames.get_parent(child_element.id())?;
+            }
         }
 
         Ok(transform)
+    }
+
+    /// Returns the homogeneous transform matrix from the given reference frame to the
+    /// body frame, taking into account the current position and orientation of the
+    /// frame relative to the body frame.
+    ///
+    /// ## Parameters
+    ///
+    /// * 'starting_element' - The source element for which the transform is requested
+    ///
+    /// ## Errors
+    ///
+    /// * [Error::MissingFrameElement] - Returned when the [ReferenceFrame] is not part of the model
+    pub fn get_homogeneous_transform_to_body(
+        &self,
+        starting_element: &FrameID,
+    ) -> Result<Matrix4<f64>, Error> {
+        let body_frame = self.get_body()?;
+        self.get_homogeneous_transform_to_ancestor(starting_element, body_frame)
     }
 
     /// Returns the homogeneous transform matrix from the given reference frame to the
@@ -1259,8 +1292,6 @@ impl MotionModel {
             .reference_frames
             .get_homogeneous_transform_to_parent(starting_element)?;
 
-        let parent_frame = self.reference_frames.get_parent(starting_element)?;
-
         let actuator_option = self.actuators.get(starting_element);
         if actuator_option.is_some() {
             let transform =
@@ -1270,25 +1301,6 @@ impl MotionModel {
         } else {
             return Ok(transform_result.to_homogeneous());
         }
-    }
-
-    /// Returns the homogeneous transform matrix from the given reference frame to the
-    /// body frame, taking into account the current position and orientation of the
-    /// frame relative to the body frame.
-    ///
-    /// ## Parameters
-    ///
-    /// * 'starting_element' - The source element for which the transform is requested
-    ///
-    /// ## Errors
-    ///
-    /// * [Error::MissingFrameElement] - Returned when the [ReferenceFrame] is not part of the model
-    pub fn get_homogeneous_transform_to_body(
-        &self,
-        starting_element: &FrameID,
-    ) -> Result<Matrix4<f64>, Error> {
-        let body_frame = self.get_body()?;
-        self.get_homogeneous_transform_to_ancestor(starting_element, body_frame)
     }
 
     /// Returns the [FrameID] of the parent of the given element.

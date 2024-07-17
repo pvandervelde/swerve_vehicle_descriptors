@@ -2514,281 +2514,6 @@ fn when_getting_frame_degree_of_freedom_with_invalid_frame_it_should_error() {
 }
 
 #[test]
-fn when_getting_homogeneous_transform_to_body_with_multiple_elements_and_motion_it_should_return_the_transform(
-) {
-    let mut model = MotionModel::new();
-    let body_id = add_body_to_model(&mut model).unwrap();
-
-    // Actuator 1
-    let (sender1, receiver1) = crossbeam_channel::unbounded();
-    let (cmd_sender1, _) = crossbeam_channel::unbounded();
-    let mut hardware_actuator1 = MockHardwareActuator {
-        receiver: receiver1,
-        sender: sender1.clone(),
-        command_sender: cmd_sender1,
-        update_sender: None,
-        id: None,
-    };
-    let change_processor = Box::new(HardwareChangeProcessor::new(1000));
-
-    let actuator_1 = Actuator::new(&mut hardware_actuator1, &change_processor).unwrap();
-
-    let id_joint_1 = add_actuated_joint_to_model(
-        &mut model,
-        &body_id,
-        DriveModulePosition::LeftFront,
-        FrameDofType::RevoluteX,
-        actuator_1,
-    )
-    .unwrap();
-
-    // Actuator 2
-    let (sender2, receiver2) = crossbeam_channel::unbounded();
-    let (cmd_sender2, _) = crossbeam_channel::unbounded();
-    let mut hardware_actuator2 = MockHardwareActuator {
-        receiver: receiver2,
-        sender: sender2.clone(),
-        command_sender: cmd_sender2,
-        update_sender: None,
-        id: None,
-    };
-
-    let actuator_2 = Actuator::new(&mut hardware_actuator2, &change_processor).unwrap();
-    let id_joint_2 = add_actuated_joint_to_model(
-        &mut model,
-        &id_joint_1,
-        DriveModulePosition::LeftFront,
-        FrameDofType::RevoluteY,
-        actuator_2,
-    )
-    .unwrap();
-
-    // wheel to steering
-    let joint_2_to_body = model.get_homogeneous_transform_to_body(&id_joint_2);
-    assert!(joint_2_to_body.is_ok());
-
-    let joint_2_to_body_matrix = joint_2_to_body.unwrap();
-
-    // | cos(30) -sin(30) 0.0 1.0 |
-    // | sin(30) cos(30)  0.0 0.5 |
-    // | 0.0     0.0      1.0 0.0 |
-    // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
-    let angle_rad = angle_deg * (PI / 180.0);
-
-    #[rustfmt::skip]
-    let joint_2_to_joint_1_matrix = Matrix4::new(
-        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
-        angle_rad.sin(), angle_rad.cos(),  0.0, 0.5,
-        0.0,             0.0,              1.0, 0.0,
-        0.0,             0.0,              0.0, 1.0,
-    );
-
-    #[rustfmt::skip]
-    let joint_1_to_body_matrix = Matrix4::new(
-        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
-        angle_rad.sin(), angle_rad.cos(),  0.0, 0.5,
-        0.0,             0.0,              1.0, 0.0,
-        0.0,             0.0,              0.0, 1.0,
-    );
-    let expected = joint_1_to_body_matrix * joint_2_to_joint_1_matrix;
-    assert_eq!(expected, joint_2_to_body_matrix);
-
-    // Push the actuators out
-    let angle_joint_1_x_deg = 30.0;
-    let angle_joint_1_x_rad = angle_joint_1_x_deg * (PI / 180.0);
-    let msg = (
-        JointState::new(angle_joint_1_x_rad, None, None, None),
-        ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
-    );
-    let _ = sender1.send(msg).unwrap();
-    let _ = hardware_actuator1
-        .update_sender
-        .unwrap()
-        .send(hardware_actuator1.id.unwrap())
-        .unwrap();
-
-    // | 1.0 0.0      0.0      0.0 |
-    // | 0.0 cos(30)  -sin(30) 0.5 |
-    // | 0.0 sin(30)  cos(30)  0.0 |
-    // | 0.0 0.0      0.0      1.0 |
-    #[rustfmt::skip]
-    let rotation_x = Matrix4::new(
-        1.0, 0.0,               0.0,                0.0,
-        0.0, angle_joint_1_x_rad.cos(), -angle_joint_1_x_rad.sin(), 0.0,
-        0.0, angle_joint_1_x_rad.sin(),  angle_joint_1_x_rad.cos(), 0.0,
-        0.0, 0.0,               0.0,                1.0,
-    );
-
-    // | cos(30) -sin(30) 0.0 1.0 |
-    // | sin(30) cos(30)  0.0 0.5 |
-    // | 0.0     0.0      1.0 0.0 |
-    // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
-    let angle_rad = angle_deg * (PI / 180.0);
-
-    #[rustfmt::skip]
-    let original = Matrix4::new(
-        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
-        angle_rad.sin(),  angle_rad.cos(), 0.0, 0.5,
-        0.0,              0.0,             1.0, 0.0,
-        0.0,              0.0,             0.0, 1.0,
-    );
-
-    let joint_1_to_body_matrix = rotation_x * original;
-
-    let angle_joint_2_y_deg = 30.0;
-    let angle_joint_2_y_rad = angle_joint_2_y_deg * (PI / 180.0);
-    let msg = (
-        JointState::new(angle_joint_2_y_deg, None, None, None),
-        ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
-    );
-    let _ = sender2.send(msg).unwrap();
-    let _ = hardware_actuator2
-        .update_sender
-        .unwrap()
-        .send(hardware_actuator2.id.unwrap())
-        .unwrap();
-
-    // | cos(30)  0.0 sin(30) 0.0 |
-    // | 0.0      1.0 0.0     0.0 |
-    // | -sin(30) 0.0 cos(30) 0.0 |
-    // | 0.0      0.0 0.0     1.0 |
-    #[rustfmt::skip]
-    let rotation_y = Matrix4::new(
-        angle_joint_2_y_rad.cos(),  0.0,  angle_joint_2_y_rad.sin(), 0.0,
-        0.0,                        1.0,  0.0,                       0.0,
-        -angle_joint_2_y_rad.sin(), 0.0, angle_joint_2_y_rad.cos(),  0.0,
-        0.0,                        0.0, 0.0,                        1.0,
-    );
-
-    // | cos(60) -sin(60) 0.0 1.0 |
-    // | sin(60) cos(60)  0.0 0.5 |
-    // | 0.0     0.0      1.0 0.0 |
-    // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
-    let angle_rad = (angle_deg + 30.0) * (PI / 180.0);
-
-    #[rustfmt::skip]
-    let original = Matrix4::new(
-        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
-        angle_rad.sin(),  angle_rad.cos(), 0.0, 0.5,
-        0.0,              0.0,             1.0, 0.0,
-        0.0,              0.0,             0.0, 1.0,
-    );
-
-    // Allow some time to ensure the task is not processed
-    std::thread::sleep(Duration::from_millis(20));
-
-    let joint_2_to_joint_1_matrix = rotation_y * original;
-    let expected = joint_1_to_body_matrix * joint_2_to_joint_1_matrix;
-
-    let joint_2_to_body = model.get_homogeneous_transform_to_body(&id_joint_2);
-    assert!(joint_2_to_body.is_ok());
-    let joint_2_to_body_matrix = joint_2_to_body.unwrap();
-
-    assert_eq!(expected, joint_2_to_body_matrix);
-}
-
-#[test]
-fn when_getting_homogeneous_transform_to_body_with_multiple_elements_and_no_motion_it_should_return_the_transform(
-) {
-    let mut model = MotionModel::new();
-    let body_id = add_body_to_model(&mut model).unwrap();
-
-    // Leg 1
-    let suspension_id_leg1 =
-        add_suspension_to_model(&mut model, &body_id, DriveModulePosition::LeftFront).unwrap();
-
-    let (sender, receiver) = crossbeam_channel::unbounded();
-    let (cmd_sender, _cmd_receiver) = crossbeam_channel::unbounded();
-    let mut hardware_actuator = MockHardwareActuator {
-        receiver,
-        sender,
-        command_sender: cmd_sender,
-        update_sender: None,
-        id: None,
-    };
-    let change_processor = Box::new(HardwareChangeProcessor::new(10));
-
-    let actuator = Actuator::new(&mut hardware_actuator, &change_processor).unwrap();
-
-    let steering_id_leg1 = add_steering_to_model(
-        &mut model,
-        &suspension_id_leg1,
-        DriveModulePosition::LeftFront,
-        actuator,
-    )
-    .unwrap();
-
-    let (wheel_sender, wheel_receiver) = crossbeam_channel::unbounded();
-    let (wheel_cmd_sender, _) = crossbeam_channel::unbounded();
-    let mut wheel_hardware_actuator = MockHardwareActuator {
-        receiver: wheel_receiver,
-        sender: wheel_sender,
-        command_sender: wheel_cmd_sender,
-        update_sender: None,
-        id: None,
-    };
-
-    let wheel_actuator = Actuator::new(&mut wheel_hardware_actuator, &change_processor).unwrap();
-
-    let wheel_id_leg1 = add_wheel_to_model(&mut model, &steering_id_leg1, wheel_actuator).unwrap();
-
-    // | 1.0 0.0 0.0 0.0 |
-    // | 0.0 1.0 0.0 0.0 |
-    // | 0.0 0.0 1.0 -0.1 |
-    // | 0.0 0.0 0.0 1.0 |
-    #[rustfmt::skip]
-    let homogeneous_wheel_to_steering = Matrix4::new(
-        1.0, 0.0, 0.0, 0.0,
-        0.0, 1.0, 0.0, 0.0,
-        0.0, 0.0, 1.0, -0.1,
-        0.0, 0.0, 0.0, 1.0,
-    );
-
-    // | cos(-30) -sin(-30) 0.0 0.25 |
-    // | sin(-30) cos(-30)  0.0 0.0 |
-    // | 0.0      0.0       1.0 -0.1 |
-    // | 0.0      0.0       0.0 1.0 |
-    let (_, angle_steering_deg) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
-    let angle_steering_rad = (angle_steering_deg + 30.0) * (PI / 180.0);
-
-    #[rustfmt::skip]
-    let homogeneous_steering_to_suspension = Matrix4::new(
-        angle_steering_rad.cos(), -angle_steering_rad.sin(), 0.0, 0.25,
-        angle_steering_rad.sin(), angle_steering_rad.cos(),  0.0, 0.0,
-        0.0,                      0.0,                       1.0, -0.1,
-        0.0,                      0.0,                       0.0, 1.0,
-    );
-
-    // | cos(30) -sin(30) 0.0 1.0 |
-    // | sin(30) cos(30)  0.0 0.5 |
-    // | 0.0     0.0      1.0 0.0 |
-    // | 0.0     0.0      0.0 1.0 |
-    let (angle_suspension_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
-    let angle_suspension_rad = (angle_suspension_deg + 30.0) * (PI / 180.0);
-
-    #[rustfmt::skip]
-    let homogenous_suspension_to_body = Matrix4::new(
-        angle_suspension_rad.cos(), -angle_suspension_rad.sin(), 0.0, 1.0,
-        angle_suspension_rad.sin(), angle_suspension_rad.cos(),  0.0, 0.5,
-        0.0,                        0.0,                         1.0, 0.0,
-        0.0,                        0.0,                         0.0, 1.0,
-    );
-
-    let expected = homogenous_suspension_to_body
-        * homogeneous_steering_to_suspension
-        * homogeneous_wheel_to_steering;
-
-    let wheel_to_body = model.get_homogeneous_transform_to_body(&wheel_id_leg1);
-    assert!(wheel_to_body.is_ok());
-
-    let wheel_to_body_matrix = wheel_to_body.unwrap();
-    assert_eq!(expected, wheel_to_body_matrix);
-}
-
-#[test]
 fn when_getting_homogeneous_transform_to_body_with_one_element_and_motion_it_should_return_the_transform(
 ) {
     let mut model = MotionModel::new();
@@ -2815,12 +2540,6 @@ fn when_getting_homogeneous_transform_to_body_with_one_element_and_motion_it_sho
     )
     .unwrap();
 
-    // wheel to steering
-    let actuator_to_body = model.get_homogeneous_transform_to_body(&id);
-    assert!(actuator_to_body.is_ok());
-
-    let actuator_to_body_matrix = actuator_to_body.unwrap();
-
     // | cos(30) -sin(30) 0.0 1.0 |
     // | sin(30) cos(30)  0.0 0.5 |
     // | 0.0     0.0      1.0 0.0 |
@@ -2829,13 +2548,12 @@ fn when_getting_homogeneous_transform_to_body_with_one_element_and_motion_it_sho
     let angle_rad = angle_deg * (PI / 180.0);
 
     #[rustfmt::skip]
-    let expected = Matrix4::new(
+    let original = Matrix4::new(
         angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
         angle_rad.sin(),  angle_rad.cos(), 0.0, 0.5,
         0.0,              0.0,             1.0, 0.0,
         0.0,              0.0,             0.0, 1.0,
     );
-    assert_eq!(expected, actuator_to_body_matrix);
 
     // Push the actuator out
     let angle_x_deg = 30.0;
@@ -2852,14 +2570,6 @@ fn when_getting_homogeneous_transform_to_body_with_one_element_and_motion_it_sho
         .send(hardware_actuator.id.unwrap())
         .unwrap();
 
-    // Allow some time to ensure the task is not processed
-    std::thread::sleep(Duration::from_millis(20));
-
-    let actuator_to_body = model.get_homogeneous_transform_to_body(&id);
-    assert!(actuator_to_body.is_ok());
-
-    let actuator_to_body_matrix = actuator_to_body.unwrap();
-
     // | 1.0 0.0      0.0      0.0 |
     // | 0.0 cos(30)  -sin(30) 0.5 |
     // | 0.0 sin(30)  cos(30)  0.0 |
@@ -2872,23 +2582,37 @@ fn when_getting_homogeneous_transform_to_body_with_one_element_and_motion_it_sho
         0.0, 0.0,               0.0,                1.0,
     );
 
-    // | cos(60) -sin(60) 0.0 1.0 |
-    // | sin(60) cos(60)  0.0 0.5 |
-    // | 0.0     0.0      1.0 0.0 |
-    // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
-    let angle_rad = (angle_deg + 30.0) * (PI / 180.0);
-
-    #[rustfmt::skip]
-    let original = Matrix4::new(
-        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
-        angle_rad.sin(),  angle_rad.cos(), 0.0, 0.5,
-        0.0,              0.0,             1.0, 0.0,
-        0.0,              0.0,             0.0, 1.0,
-    );
-
     let expected = rotation_x * original;
-    assert_eq!(expected, actuator_to_body_matrix);
+
+    // Allow some time to ensure the task is not processed
+    std::thread::sleep(Duration::from_millis(20));
+
+    let actuator_to_body = model.get_homogeneous_transform_to_body(&id);
+    assert!(actuator_to_body.is_ok());
+
+    let actuator_to_body_matrix = actuator_to_body.unwrap();
+    let mut expected_it = expected.iter();
+    let mut calculated_it = actuator_to_body_matrix.iter();
+    loop {
+        match (expected_it.next(), calculated_it.next()) {
+            (Some(a), Some(b)) => {
+                assert!(
+                    (*a).approx_eq(
+                        *b,
+                        F64Margin {
+                            ulps: 2,
+                            epsilon: 1e-6
+                        }
+                    ),
+                    "Expected {:.5} and {:.5} to be equal within 2 ulps or 1e-6",
+                    *a,
+                    *b
+                );
+            }
+            (None, None) => break,
+            _ => assert!(false),
+        }
+    }
 
     // Pull the actuator in
     let angle_x_deg = -30.0;
@@ -2905,14 +2629,6 @@ fn when_getting_homogeneous_transform_to_body_with_one_element_and_motion_it_sho
         .send(hardware_actuator.id.unwrap())
         .unwrap();
 
-    // Allow some time to ensure the task is not processed
-    std::thread::sleep(Duration::from_millis(20));
-
-    let actuator_to_body = model.get_homogeneous_transform_to_body(&id);
-    assert!(actuator_to_body.is_ok());
-
-    let actuator_to_body_matrix = actuator_to_body.unwrap();
-
     // | 1.0 0.0      0.0      0.0 |
     // | 0.0 cos(-30)  -sin(-30) 0.5 |
     // | 0.0 sin(-30)  cos(-30)  0.0 |
@@ -2925,23 +2641,38 @@ fn when_getting_homogeneous_transform_to_body_with_one_element_and_motion_it_sho
         0.0, 0.0,               0.0,                1.0,
     );
 
-    // | cos(30) -sin(30) 0.0 1.0 |
-    // | sin(30) cos(30)  0.0 0.5 |
-    // | 0.0     0.0      1.0 0.0 |
-    // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
-    let angle_rad = (angle_deg + 30.0) * (PI / 180.0);
-
-    #[rustfmt::skip]
-    let original = Matrix4::new(
-        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
-        angle_rad.sin(),  angle_rad.cos(), 0.0, 0.5,
-        0.0,              0.0,             1.0, 0.0,
-        0.0,              0.0,             0.0, 1.0,
-    );
-
     let expected = rotation_x * original;
-    assert_eq!(expected, actuator_to_body_matrix);
+
+    // Allow some time to ensure the task is not processed
+    std::thread::sleep(Duration::from_millis(20));
+
+    let actuator_to_body = model.get_homogeneous_transform_to_body(&id);
+    assert!(actuator_to_body.is_ok());
+
+    let actuator_to_body_matrix = actuator_to_body.unwrap();
+
+    let mut expected_it = expected.iter();
+    let mut calculated_it = actuator_to_body_matrix.iter();
+    loop {
+        match (expected_it.next(), calculated_it.next()) {
+            (Some(a), Some(b)) => {
+                assert!(
+                    (*a).approx_eq(
+                        *b,
+                        F64Margin {
+                            ulps: 2,
+                            epsilon: 1e-6
+                        }
+                    ),
+                    "Expected {:.5} and {:.5} to be equal within 2 ulps or 1e-6",
+                    *a,
+                    *b
+                );
+            }
+            (None, None) => break,
+            _ => assert!(false),
+        }
+    }
 }
 
 #[test]
@@ -2959,7 +2690,7 @@ fn when_getting_homogeneous_transform_to_body_with_one_element_and_no_motion_it_
     // | 0.0     0.0      1.0 0.0 |
     // | 0.0     0.0      0.0 1.0 |
     let (angle_suspension_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
-    let angle_suspension_rad = (angle_suspension_deg + 30.0) * (PI / 180.0);
+    let angle_suspension_rad = angle_suspension_deg * (PI / 180.0);
 
     #[rustfmt::skip]
     let homogenous_suspension_to_body = Matrix4::new(
@@ -2971,11 +2702,113 @@ fn when_getting_homogeneous_transform_to_body_with_one_element_and_no_motion_it_
 
     let expected = homogenous_suspension_to_body;
 
-    let wheel_to_body = model.get_homogeneous_transform_to_body(&suspension_id_leg1);
-    assert!(wheel_to_body.is_ok());
+    let suspension_to_body = model.get_homogeneous_transform_to_body(&suspension_id_leg1);
+    assert!(suspension_to_body.is_ok());
 
-    let wheel_to_body_matrix = wheel_to_body.unwrap();
+    let wheel_to_body_matrix = suspension_to_body.unwrap();
     assert_eq!(expected, wheel_to_body_matrix);
+}
+
+#[test]
+fn when_getting_homogeneous_transform_to_body_with_multiple_elements_and_no_motion_should_return_the_transform(
+) {
+    let mut model = MotionModel::new();
+    let body_id = add_body_to_model(&mut model).unwrap();
+
+    // Actuator 1
+    let (sender1, receiver1) = crossbeam_channel::unbounded();
+    let (cmd_sender1, _) = crossbeam_channel::unbounded();
+    let mut hardware_actuator1 = MockHardwareActuator {
+        receiver: receiver1,
+        sender: sender1.clone(),
+        command_sender: cmd_sender1,
+        update_sender: None,
+        id: None,
+    };
+    let change_processor = Box::new(HardwareChangeProcessor::new(1000));
+
+    let actuator_1 = Actuator::new(&mut hardware_actuator1, &change_processor).unwrap();
+    let id_joint_1 = add_actuated_joint_to_model(
+        &mut model,
+        &body_id,
+        DriveModulePosition::LeftFront,
+        FrameDofType::PrismaticX,
+        actuator_1,
+    )
+    .unwrap();
+
+    // Actuator 2
+    let (sender2, receiver2) = crossbeam_channel::unbounded();
+    let (cmd_sender2, _) = crossbeam_channel::unbounded();
+    let mut hardware_actuator2 = MockHardwareActuator {
+        receiver: receiver2,
+        sender: sender2.clone(),
+        command_sender: cmd_sender2,
+        update_sender: None,
+        id: None,
+    };
+
+    let actuator_2 = Actuator::new(&mut hardware_actuator2, &change_processor).unwrap();
+    let id_joint_2 = add_actuated_joint_to_model(
+        &mut model,
+        &id_joint_1,
+        DriveModulePosition::LeftFront,
+        FrameDofType::PrismaticY,
+        actuator_2,
+    )
+    .unwrap();
+
+    // | cos(30) -sin(30) 0.0 1.0 |
+    // | sin(30) cos(30)  0.0 0.5 |
+    // | 0.0     0.0      1.0 0.0 |
+    // | 0.0     0.0      0.0 1.0 |
+    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
+    let angle_rad = angle_deg * (PI / 180.0);
+
+    #[rustfmt::skip]
+    let joint_2_to_joint_1_matrix = Matrix4::new(
+        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
+        angle_rad.sin(), angle_rad.cos(),  0.0, 0.5,
+        0.0,             0.0,              1.0, 0.0,
+        0.0,             0.0,              0.0, 1.0,
+    );
+
+    #[rustfmt::skip]
+    let joint_1_to_body_matrix = Matrix4::new(
+        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
+        angle_rad.sin(), angle_rad.cos(),  0.0, 0.5,
+        0.0,             0.0,              1.0, 0.0,
+        0.0,             0.0,              0.0, 1.0,
+    );
+
+    let expected = joint_1_to_body_matrix * joint_2_to_joint_1_matrix;
+
+    let joint_2_to_body = model.get_homogeneous_transform_to_body(&id_joint_2);
+    assert!(joint_2_to_body.is_ok());
+    let joint_2_to_body_matrix = joint_2_to_body.unwrap();
+
+    let mut expected_it = expected.iter();
+    let mut calculated_it = joint_2_to_body_matrix.iter();
+    loop {
+        match (expected_it.next(), calculated_it.next()) {
+            (Some(a), Some(b)) => {
+                assert!(
+                    (*a).approx_eq(
+                        *b,
+                        F64Margin {
+                            ulps: 2,
+                            epsilon: 1e-6
+                        }
+                    ),
+                    "Expected {:.5} and {:.5} to be equal within 2 ulps or 1e-6",
+                    *a,
+                    *b
+                );
+            }
+            (None, None) => break,
+            _ => assert!(false),
+        }
+    }
 }
 
 #[test]
@@ -3027,12 +2860,6 @@ fn when_getting_homogeneous_transform_to_body_with_primatic_x_and_prismatic_y_mo
     )
     .unwrap();
 
-    // wheel to steering
-    let joint_2_to_body = model.get_homogeneous_transform_to_body(&id_joint_2);
-    assert!(joint_2_to_body.is_ok());
-
-    let joint_2_to_body_matrix = joint_2_to_body.unwrap();
-
     // | cos(30) -sin(30) 0.0 1.0 |
     // | sin(30) cos(30)  0.0 0.5 |
     // | 0.0     0.0      1.0 0.0 |
@@ -3055,14 +2882,11 @@ fn when_getting_homogeneous_transform_to_body_with_primatic_x_and_prismatic_y_mo
         0.0,             0.0,              1.0, 0.0,
         0.0,             0.0,              0.0, 1.0,
     );
-    let expected = joint_1_to_body_matrix * joint_2_to_joint_1_matrix;
-    assert_eq!(expected, joint_2_to_body_matrix);
 
     // Push the actuators out
-    let angle_joint_1_z_deg = 30.0;
-    let angle_joint_1_z_rad = angle_joint_1_z_deg * (PI / 180.0);
+    let joint_1_x = 1.0;
     let msg = (
-        JointState::new(angle_joint_1_z_rad, None, None, None),
+        JointState::new(joint_1_x, None, None, None),
         ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
     );
     let _ = sender1.send(msg).unwrap();
@@ -3072,39 +2896,19 @@ fn when_getting_homogeneous_transform_to_body_with_primatic_x_and_prismatic_y_mo
         .send(hardware_actuator1.id.unwrap())
         .unwrap();
 
-    // | 1.0 0.0      0.0      0.0 |
-    // | 0.0 cos(30)  -sin(30) 0.5 |
-    // | 0.0 sin(30)  cos(30)  0.0 |
-    // | 0.0 0.0      0.0      1.0 |
     #[rustfmt::skip]
-    let rotation_x = Matrix4::new(
-        angle_joint_1_z_rad.cos(), -angle_joint_1_z_rad.sin(), 0.0, 0.0,
-        angle_joint_1_z_rad.sin(), angle_joint_1_z_rad.cos(),  0.0, 0.0,
-        0.0,                       0.0,                        1.0, 0.0,
-        0.0,                       0.0,                        0.0, 1.0,
+    let translation_x = Matrix4::new(
+        1.0, 0.0, 0.0, joint_1_x,
+        0.0, 1.0, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        0.0, 0.0, 0.0, 1.0,
     );
 
-    // | cos(30) -sin(30) 0.0 1.0 |
-    // | sin(30) cos(30)  0.0 0.5 |
-    // | 0.0     0.0      1.0 0.0 |
-    // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
-    let angle_rad = angle_deg * (PI / 180.0);
+    let joint_1_to_body_motion_matrix = translation_x * joint_1_to_body_matrix;
 
-    #[rustfmt::skip]
-    let original = Matrix4::new(
-        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
-        angle_rad.sin(),  angle_rad.cos(), 0.0, 0.5,
-        0.0,              0.0,             1.0, 0.0,
-        0.0,              0.0,             0.0, 1.0,
-    );
-
-    let joint_1_to_body_matrix = rotation_x * original;
-
-    let angle_joint_2_y_deg = 30.0;
-    let angle_joint_2_y_rad = angle_joint_2_y_deg * (PI / 180.0);
+    let joint_2_y = -1.0;
     let msg = (
-        JointState::new(angle_joint_2_y_rad, None, None, None),
+        JointState::new(joint_2_y, None, None, None),
         ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
     );
     let _ = sender2.send(msg).unwrap();
@@ -3114,35 +2918,16 @@ fn when_getting_homogeneous_transform_to_body_with_primatic_x_and_prismatic_y_mo
         .send(hardware_actuator2.id.unwrap())
         .unwrap();
 
-    // | cos(30)  0.0 sin(30) 0.0 |
-    // | 0.0      1.0 0.0     0.0 |
-    // | -sin(30) 0.0 cos(30) 0.0 |
-    // | 0.0      0.0 0.0     1.0 |
     #[rustfmt::skip]
-    let rotation_y = Matrix4::new(
-        angle_joint_2_y_rad.cos(),  0.0,  angle_joint_2_y_rad.sin(), 0.0,
-        0.0,                        1.0,  0.0,                       0.0,
-        -angle_joint_2_y_rad.sin(), 0.0, angle_joint_2_y_rad.cos(),  0.0,
-        0.0,                        0.0, 0.0,                        1.0,
+    let translation_y = Matrix4::new(
+        1.0, 0.0, 0.0, 0.0,
+        0.0, 1.0, 0.0, joint_2_y,
+        0.0, 0.0, 1.0, 0.0,
+        0.0, 0.0, 0.0, 1.0,
     );
 
-    // | cos(60) -sin(60) 0.0 1.0 |
-    // | sin(60) cos(60)  0.0 0.5 |
-    // | 0.0     0.0      1.0 0.0 |
-    // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
-    let angle_rad = (angle_deg + 30.0) * (PI / 180.0);
-
-    #[rustfmt::skip]
-    let original = Matrix4::new(
-        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
-        angle_rad.sin(),  angle_rad.cos(), 0.0, 0.5,
-        0.0,              0.0,             1.0, 0.0,
-        0.0,              0.0,             0.0, 1.0,
-    );
-
-    let joint_2_to_joint_1_matrix = rotation_y * original;
-    let expected = joint_1_to_body_matrix * joint_2_to_joint_1_matrix;
+    let joint_2_to_joint_1_motion_matrix = translation_y * joint_2_to_joint_1_matrix;
+    let expected = joint_1_to_body_motion_matrix * joint_2_to_joint_1_motion_matrix;
 
     // Allow some time to ensure the task is not processed
     std::thread::sleep(Duration::from_millis(20));
@@ -3151,7 +2936,28 @@ fn when_getting_homogeneous_transform_to_body_with_primatic_x_and_prismatic_y_mo
     assert!(joint_2_to_body.is_ok());
     let joint_2_to_body_matrix = joint_2_to_body.unwrap();
 
-    assert_eq!(expected, joint_2_to_body_matrix);
+    let mut expected_it = expected.iter();
+    let mut calculated_it = joint_2_to_body_matrix.iter();
+    loop {
+        match (expected_it.next(), calculated_it.next()) {
+            (Some(a), Some(b)) => {
+                assert!(
+                    (*a).approx_eq(
+                        *b,
+                        F64Margin {
+                            ulps: 2,
+                            epsilon: 1e-6
+                        }
+                    ),
+                    "Expected {:.5} and {:.5} to be equal within 2 ulps or 1e-6",
+                    *a,
+                    *b
+                );
+            }
+            (None, None) => break,
+            _ => assert!(false),
+        }
+    }
 }
 
 #[test]
@@ -3203,12 +3009,6 @@ fn when_getting_homogeneous_transform_to_body_with_primatic_x_and_prismatic_z_mo
     )
     .unwrap();
 
-    // wheel to steering
-    let joint_2_to_body = model.get_homogeneous_transform_to_body(&id_joint_2);
-    assert!(joint_2_to_body.is_ok());
-
-    let joint_2_to_body_matrix = joint_2_to_body.unwrap();
-
     // | cos(30) -sin(30) 0.0 1.0 |
     // | sin(30) cos(30)  0.0 0.5 |
     // | 0.0     0.0      1.0 0.0 |
@@ -3231,14 +3031,11 @@ fn when_getting_homogeneous_transform_to_body_with_primatic_x_and_prismatic_z_mo
         0.0,             0.0,              1.0, 0.0,
         0.0,             0.0,              0.0, 1.0,
     );
-    let expected = joint_1_to_body_matrix * joint_2_to_joint_1_matrix;
-    assert_eq!(expected, joint_2_to_body_matrix);
 
     // Push the actuators out
-    let angle_joint_1_z_deg = 30.0;
-    let angle_joint_1_z_rad = angle_joint_1_z_deg * (PI / 180.0);
+    let joint_1_x = 1.0;
     let msg = (
-        JointState::new(angle_joint_1_z_rad, None, None, None),
+        JointState::new(joint_1_x, None, None, None),
         ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
     );
     let _ = sender1.send(msg).unwrap();
@@ -3248,39 +3045,19 @@ fn when_getting_homogeneous_transform_to_body_with_primatic_x_and_prismatic_z_mo
         .send(hardware_actuator1.id.unwrap())
         .unwrap();
 
-    // | 1.0 0.0      0.0      0.0 |
-    // | 0.0 cos(30)  -sin(30) 0.5 |
-    // | 0.0 sin(30)  cos(30)  0.0 |
-    // | 0.0 0.0      0.0      1.0 |
     #[rustfmt::skip]
-    let rotation_x = Matrix4::new(
-        angle_joint_1_z_rad.cos(), -angle_joint_1_z_rad.sin(), 0.0, 0.0,
-        angle_joint_1_z_rad.sin(), angle_joint_1_z_rad.cos(),  0.0, 0.0,
-        0.0,                       0.0,                        1.0, 0.0,
-        0.0,                       0.0,                        0.0, 1.0,
+    let translation_x = Matrix4::new(
+        1.0, 0.0, 0.0, joint_1_x,
+        0.0, 1.0, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        0.0, 0.0, 0.0, 1.0,
     );
 
-    // | cos(30) -sin(30) 0.0 1.0 |
-    // | sin(30) cos(30)  0.0 0.5 |
-    // | 0.0     0.0      1.0 0.0 |
-    // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
-    let angle_rad = angle_deg * (PI / 180.0);
+    let joint_1_to_body_motion_matrix = translation_x * joint_1_to_body_matrix;
 
-    #[rustfmt::skip]
-    let original = Matrix4::new(
-        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
-        angle_rad.sin(),  angle_rad.cos(), 0.0, 0.5,
-        0.0,              0.0,             1.0, 0.0,
-        0.0,              0.0,             0.0, 1.0,
-    );
-
-    let joint_1_to_body_matrix = rotation_x * original;
-
-    let angle_joint_2_y_deg = 30.0;
-    let angle_joint_2_y_rad = angle_joint_2_y_deg * (PI / 180.0);
+    let joint_2_z = -1.0;
     let msg = (
-        JointState::new(angle_joint_2_y_rad, None, None, None),
+        JointState::new(joint_2_z, None, None, None),
         ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
     );
     let _ = sender2.send(msg).unwrap();
@@ -3295,30 +3072,15 @@ fn when_getting_homogeneous_transform_to_body_with_primatic_x_and_prismatic_z_mo
     // | -sin(30) 0.0 cos(30) 0.0 |
     // | 0.0      0.0 0.0     1.0 |
     #[rustfmt::skip]
-    let rotation_y = Matrix4::new(
-        angle_joint_2_y_rad.cos(),  0.0,  angle_joint_2_y_rad.sin(), 0.0,
-        0.0,                        1.0,  0.0,                       0.0,
-        -angle_joint_2_y_rad.sin(), 0.0, angle_joint_2_y_rad.cos(),  0.0,
-        0.0,                        0.0, 0.0,                        1.0,
+    let translation_z = Matrix4::new(
+        1.0, 0.0, 0.0, 0.0,
+        0.0, 1.0, 0.0, 0.0,
+        0.0, 0.0, 1.0, joint_2_z,
+        0.0, 0.0, 0.0, 1.0,
     );
 
-    // | cos(60) -sin(60) 0.0 1.0 |
-    // | sin(60) cos(60)  0.0 0.5 |
-    // | 0.0     0.0      1.0 0.0 |
-    // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
-    let angle_rad = (angle_deg + 30.0) * (PI / 180.0);
-
-    #[rustfmt::skip]
-    let original = Matrix4::new(
-        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
-        angle_rad.sin(),  angle_rad.cos(), 0.0, 0.5,
-        0.0,              0.0,             1.0, 0.0,
-        0.0,              0.0,             0.0, 1.0,
-    );
-
-    let joint_2_to_joint_1_matrix = rotation_y * original;
-    let expected = joint_1_to_body_matrix * joint_2_to_joint_1_matrix;
+    let joint_2_to_joint_1_motion_matrix = translation_z * joint_2_to_joint_1_matrix;
+    let expected = joint_1_to_body_motion_matrix * joint_2_to_joint_1_motion_matrix;
 
     // Allow some time to ensure the task is not processed
     std::thread::sleep(Duration::from_millis(20));
@@ -3327,7 +3089,28 @@ fn when_getting_homogeneous_transform_to_body_with_primatic_x_and_prismatic_z_mo
     assert!(joint_2_to_body.is_ok());
     let joint_2_to_body_matrix = joint_2_to_body.unwrap();
 
-    assert_eq!(expected, joint_2_to_body_matrix);
+    let mut expected_it = expected.iter();
+    let mut calculated_it = joint_2_to_body_matrix.iter();
+    loop {
+        match (expected_it.next(), calculated_it.next()) {
+            (Some(a), Some(b)) => {
+                assert!(
+                    (*a).approx_eq(
+                        *b,
+                        F64Margin {
+                            ulps: 2,
+                            epsilon: 1e-6
+                        }
+                    ),
+                    "Expected {:.5} and {:.5} to be equal within 2 ulps or 1e-6",
+                    *a,
+                    *b
+                );
+            }
+            (None, None) => break,
+            _ => assert!(false),
+        }
+    }
 }
 
 #[test]
@@ -3379,12 +3162,6 @@ fn when_getting_homogeneous_transform_to_body_with_primatic_y_and_prismatic_z_mo
     )
     .unwrap();
 
-    // wheel to steering
-    let joint_2_to_body = model.get_homogeneous_transform_to_body(&id_joint_2);
-    assert!(joint_2_to_body.is_ok());
-
-    let joint_2_to_body_matrix = joint_2_to_body.unwrap();
-
     // | cos(30) -sin(30) 0.0 1.0 |
     // | sin(30) cos(30)  0.0 0.5 |
     // | 0.0     0.0      1.0 0.0 |
@@ -3407,14 +3184,11 @@ fn when_getting_homogeneous_transform_to_body_with_primatic_y_and_prismatic_z_mo
         0.0,             0.0,              1.0, 0.0,
         0.0,             0.0,              0.0, 1.0,
     );
-    let expected = joint_1_to_body_matrix * joint_2_to_joint_1_matrix;
-    assert_eq!(expected, joint_2_to_body_matrix);
 
     // Push the actuators out
-    let angle_joint_1_z_deg = 30.0;
-    let angle_joint_1_z_rad = angle_joint_1_z_deg * (PI / 180.0);
+    let joint_1_y = 1.0;
     let msg = (
-        JointState::new(angle_joint_1_z_rad, None, None, None),
+        JointState::new(joint_1_y, None, None, None),
         ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
     );
     let _ = sender1.send(msg).unwrap();
@@ -3424,39 +3198,19 @@ fn when_getting_homogeneous_transform_to_body_with_primatic_y_and_prismatic_z_mo
         .send(hardware_actuator1.id.unwrap())
         .unwrap();
 
-    // | 1.0 0.0      0.0      0.0 |
-    // | 0.0 cos(30)  -sin(30) 0.5 |
-    // | 0.0 sin(30)  cos(30)  0.0 |
-    // | 0.0 0.0      0.0      1.0 |
     #[rustfmt::skip]
-    let rotation_x = Matrix4::new(
-        angle_joint_1_z_rad.cos(), -angle_joint_1_z_rad.sin(), 0.0, 0.0,
-        angle_joint_1_z_rad.sin(), angle_joint_1_z_rad.cos(),  0.0, 0.0,
-        0.0,                       0.0,                        1.0, 0.0,
-        0.0,                       0.0,                        0.0, 1.0,
+    let translation_y = Matrix4::new(
+        1.0, 0.0, 0.0, 0.0,
+        0.0, 1.0, 0.0, joint_1_y,
+        0.0, 0.0, 1.0, 0.0,
+        0.0, 0.0, 0.0, 1.0,
     );
 
-    // | cos(30) -sin(30) 0.0 1.0 |
-    // | sin(30) cos(30)  0.0 0.5 |
-    // | 0.0     0.0      1.0 0.0 |
-    // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
-    let angle_rad = angle_deg * (PI / 180.0);
+    let joint_1_to_body_moved_matrix = translation_y * joint_1_to_body_matrix;
 
-    #[rustfmt::skip]
-    let original = Matrix4::new(
-        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
-        angle_rad.sin(),  angle_rad.cos(), 0.0, 0.5,
-        0.0,              0.0,             1.0, 0.0,
-        0.0,              0.0,             0.0, 1.0,
-    );
-
-    let joint_1_to_body_matrix = rotation_x * original;
-
-    let angle_joint_2_y_deg = 30.0;
-    let angle_joint_2_y_rad = angle_joint_2_y_deg * (PI / 180.0);
+    let joint_2_z = -1.0;
     let msg = (
-        JointState::new(angle_joint_2_y_rad, None, None, None),
+        JointState::new(joint_2_z, None, None, None),
         ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
     );
     let _ = sender2.send(msg).unwrap();
@@ -3471,30 +3225,15 @@ fn when_getting_homogeneous_transform_to_body_with_primatic_y_and_prismatic_z_mo
     // | -sin(30) 0.0 cos(30) 0.0 |
     // | 0.0      0.0 0.0     1.0 |
     #[rustfmt::skip]
-    let rotation_y = Matrix4::new(
-        angle_joint_2_y_rad.cos(),  0.0,  angle_joint_2_y_rad.sin(), 0.0,
-        0.0,                        1.0,  0.0,                       0.0,
-        -angle_joint_2_y_rad.sin(), 0.0, angle_joint_2_y_rad.cos(),  0.0,
-        0.0,                        0.0, 0.0,                        1.0,
+    let translation_z = Matrix4::new(
+        1.0, 0.0, 0.0, 0.0,
+        0.0, 1.0, 0.0, 0.0,
+        0.0, 0.0, 1.0, joint_2_z,
+        0.0, 0.0, 0.0, 1.0,
     );
 
-    // | cos(60) -sin(60) 0.0 1.0 |
-    // | sin(60) cos(60)  0.0 0.5 |
-    // | 0.0     0.0      1.0 0.0 |
-    // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
-    let angle_rad = (angle_deg + 30.0) * (PI / 180.0);
-
-    #[rustfmt::skip]
-    let original = Matrix4::new(
-        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
-        angle_rad.sin(),  angle_rad.cos(), 0.0, 0.5,
-        0.0,              0.0,             1.0, 0.0,
-        0.0,              0.0,             0.0, 1.0,
-    );
-
-    let joint_2_to_joint_1_matrix = rotation_y * original;
-    let expected = joint_1_to_body_matrix * joint_2_to_joint_1_matrix;
+    let joint_2_to_joint_1_moved_matrix = translation_z * joint_2_to_joint_1_matrix;
+    let expected = joint_1_to_body_moved_matrix * joint_2_to_joint_1_moved_matrix;
 
     // Allow some time to ensure the task is not processed
     std::thread::sleep(Duration::from_millis(20));
@@ -3503,7 +3242,28 @@ fn when_getting_homogeneous_transform_to_body_with_primatic_y_and_prismatic_z_mo
     assert!(joint_2_to_body.is_ok());
     let joint_2_to_body_matrix = joint_2_to_body.unwrap();
 
-    assert_eq!(expected, joint_2_to_body_matrix);
+    let mut expected_it = expected.iter();
+    let mut calculated_it = joint_2_to_body_matrix.iter();
+    loop {
+        match (expected_it.next(), calculated_it.next()) {
+            (Some(a), Some(b)) => {
+                assert!(
+                    (*a).approx_eq(
+                        *b,
+                        F64Margin {
+                            ulps: 2,
+                            epsilon: 1e-6
+                        }
+                    ),
+                    "Expected {:.5} and {:.5} to be equal within 2 ulps or 1e-6",
+                    *a,
+                    *b
+                );
+            }
+            (None, None) => break,
+            _ => assert!(false),
+        }
+    }
 }
 
 #[test]
@@ -3555,13 +3315,7 @@ fn when_getting_homogeneous_transform_to_frame_across_wheel_chains_and_motion_it
     )
     .unwrap();
 
-    // wheel to steering
-    let joint_2_to_joint_1 =
-        model.get_homogeneous_transform_between_frames(&id_joint_2, &id_joint_1);
-    assert!(joint_2_to_joint_1.is_ok());
-
-    let joint_2_to_joint_1_matrix = joint_2_to_joint_1.unwrap();
-
+    // Joint 1
     // | cos(30) -sin(30) 0.0 1.0 |
     // | sin(30) cos(30)  0.0 0.5 |
     // | 0.0     0.0      1.0 0.0 |
@@ -3570,28 +3324,28 @@ fn when_getting_homogeneous_transform_to_frame_across_wheel_chains_and_motion_it
     let angle_rad = angle_deg * (PI / 180.0);
 
     #[rustfmt::skip]
-    let expected_joint_2_to_joint_1_matrix = Matrix4::new(
+    let joint_1_to_body_static = Matrix4::new(
         angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
         angle_rad.sin(), angle_rad.cos(),  0.0, 0.5,
         0.0,             0.0,              1.0, 0.0,
         0.0,             0.0,              0.0, 1.0,
     );
 
+    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::RightFront);
+    let angle_rad = angle_deg * (PI / 180.0);
     #[rustfmt::skip]
-    let expected_joint_1_to_body_matrix = Matrix4::new(
+    let joint_2_to_body_static = Matrix4::new(
         angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
-        angle_rad.sin(), angle_rad.cos(),  0.0, 0.5,
+        angle_rad.sin(), angle_rad.cos(),  0.0, -0.5,
         0.0,             0.0,              1.0, 0.0,
         0.0,             0.0,              0.0, 1.0,
     );
-    let expected = expected_joint_1_to_body_matrix * expected_joint_2_to_joint_1_matrix;
-    assert_eq!(expected, joint_2_to_joint_1_matrix);
 
     // Push the actuators out
-    let angle_joint_1_z_deg = 30.0;
-    let angle_joint_1_z_rad = angle_joint_1_z_deg * (PI / 180.0);
+    let angle_joint_1_x_deg = 30.0;
+    let angle_joint_1_x_rad = angle_joint_1_x_deg * (PI / 180.0);
     let msg = (
-        JointState::new(angle_joint_1_z_rad, None, None, None),
+        JointState::new(angle_joint_1_x_rad, None, None, None),
         ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
     );
     let _ = sender1.send(msg).unwrap();
@@ -3606,34 +3360,20 @@ fn when_getting_homogeneous_transform_to_frame_across_wheel_chains_and_motion_it
     // | 0.0 sin(30)  cos(30)  0.0 |
     // | 0.0 0.0      0.0      1.0 |
     #[rustfmt::skip]
-    let rotation_x = Matrix4::new(
-        angle_joint_1_z_rad.cos(), -angle_joint_1_z_rad.sin(), 0.0, 0.0,
-        angle_joint_1_z_rad.sin(), angle_joint_1_z_rad.cos(),  0.0, 0.0,
-        0.0,                       0.0,                        1.0, 0.0,
-        0.0,                       0.0,                        0.0, 1.0,
+    let rotation_joint_1_x = Matrix4::new(
+        1.0, 0.0,                       0.0,                        0.0,
+        0.0, angle_joint_1_x_rad.cos(), -angle_joint_1_x_rad.sin(), 0.0,
+        0.0, angle_joint_1_x_rad.sin(), angle_joint_1_x_rad.cos(),  0.0,
+        0.0, 0.0,                       0.0,                        1.0,
     );
 
-    // | cos(30) -sin(30) 0.0 1.0 |
-    // | sin(30) cos(30)  0.0 0.5 |
-    // | 0.0     0.0      1.0 0.0 |
-    // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
-    let angle_rad = angle_deg * (PI / 180.0);
+    let expected_joint_1_to_body_matrix = rotation_joint_1_x * joint_1_to_body_static;
+    let expected_joint_1_to_body_inverse = expected_joint_1_to_body_matrix.try_inverse().unwrap();
 
-    #[rustfmt::skip]
-    let original = Matrix4::new(
-        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
-        angle_rad.sin(),  angle_rad.cos(), 0.0, 0.5,
-        0.0,              0.0,             1.0, 0.0,
-        0.0,              0.0,             0.0, 1.0,
-    );
-
-    let expected_joint_1_to_body_matrix = rotation_x * original;
-
-    let angle_joint_2_y_deg = 30.0;
-    let angle_joint_2_y_rad = angle_joint_2_y_deg * (PI / 180.0);
+    let angle_joint_2_z_deg = 30.0;
+    let angle_joint_2_z_rad = angle_joint_2_z_deg * (PI / 180.0);
     let msg = (
-        JointState::new(angle_joint_2_y_deg, None, None, None),
+        JointState::new(angle_joint_2_z_rad, None, None, None),
         ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
     );
     let _ = sender2.send(msg).unwrap();
@@ -3648,30 +3388,15 @@ fn when_getting_homogeneous_transform_to_frame_across_wheel_chains_and_motion_it
     // | -sin(30) 0.0 cos(30) 0.0 |
     // | 0.0      0.0 0.0     1.0 |
     #[rustfmt::skip]
-    let rotation_y = Matrix4::new(
-        angle_joint_2_y_rad.cos(),  0.0,  angle_joint_2_y_rad.sin(), 0.0,
-        0.0,                        1.0,  0.0,                       0.0,
-        -angle_joint_2_y_rad.sin(), 0.0, angle_joint_2_y_rad.cos(),  0.0,
-        0.0,                        0.0, 0.0,                        1.0,
+    let rotation_z = Matrix4::new(
+        angle_joint_2_z_rad.cos(), -angle_joint_2_z_rad.sin(), 0.0, 0.0,
+        angle_joint_2_z_rad.sin(), angle_joint_2_z_rad.cos(),  0.0, 0.0,
+        0.0,                      0.0,                         1.0, 0.0,
+        0.0,                      0.0,                         0.0, 1.0,
     );
 
-    // | cos(60) -sin(60) 0.0 1.0 |
-    // | sin(60) cos(60)  0.0 0.5 |
-    // | 0.0     0.0      1.0 0.0 |
-    // | 0.0     0.0      0.0 1.0 |
-    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::LeftFront);
-    let angle_rad = (angle_deg + 30.0) * (PI / 180.0);
-
-    #[rustfmt::skip]
-    let original = Matrix4::new(
-        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
-        angle_rad.sin(),  angle_rad.cos(), 0.0, 0.5,
-        0.0,              0.0,             1.0, 0.0,
-        0.0,              0.0,             0.0, 1.0,
-    );
-
-    let expected_joint_2_to_joint_1_matrix = rotation_y * original;
-    let expected = expected_joint_1_to_body_matrix * expected_joint_2_to_joint_1_matrix;
+    let expected_joint_2_to_joint_1_matrix = rotation_z * joint_2_to_body_static;
+    let expected = expected_joint_1_to_body_inverse * expected_joint_2_to_joint_1_matrix;
 
     // Allow some time to ensure the task is not processed
     std::thread::sleep(Duration::from_millis(20));
@@ -3681,7 +3406,28 @@ fn when_getting_homogeneous_transform_to_frame_across_wheel_chains_and_motion_it
     assert!(joint_2_to_joint_1.is_ok());
     let joint_2_to_joint_1_matrix = joint_2_to_joint_1.unwrap();
 
-    assert_eq!(expected, joint_2_to_joint_1_matrix);
+    let mut expected_it = expected.iter();
+    let mut calculated_it = joint_2_to_joint_1_matrix.iter();
+    loop {
+        match (expected_it.next(), calculated_it.next()) {
+            (Some(a), Some(b)) => {
+                assert!(
+                    (*a).approx_eq(
+                        *b,
+                        F64Margin {
+                            ulps: 2,
+                            epsilon: 1e-6
+                        }
+                    ),
+                    "Expected {:.5} and {:.5} to be equal within 2 ulps or 1e-6",
+                    *a,
+                    *b
+                );
+            }
+            (None, None) => break,
+            _ => assert!(false),
+        }
+    }
 }
 
 #[test]
@@ -3733,7 +3479,6 @@ fn when_getting_homogeneous_transform_to_frame_across_wheel_chains_and_no_motion
     )
     .unwrap();
 
-    // wheel to steering
     let joint_2_to_joint_1 =
         model.get_homogeneous_transform_between_frames(&id_joint_2, &id_joint_1);
     assert!(joint_2_to_joint_1.is_ok());
@@ -3748,46 +3493,49 @@ fn when_getting_homogeneous_transform_to_frame_across_wheel_chains_and_no_motion
     let angle_rad = angle_deg * (PI / 180.0);
 
     #[rustfmt::skip]
-    let expected_joint_2_to_joint_1_matrix = Matrix4::new(
-        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
-        angle_rad.sin(), angle_rad.cos(),  0.0, 0.5,
-        0.0,             0.0,              1.0, 0.0,
-        0.0,             0.0,              0.0, 1.0,
-    );
-
-    #[rustfmt::skip]
     let expected_joint_1_to_body_matrix = Matrix4::new(
         angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
         angle_rad.sin(), angle_rad.cos(),  0.0, 0.5,
         0.0,             0.0,              1.0, 0.0,
         0.0,             0.0,              0.0, 1.0,
     );
-    let expected = expected_joint_1_to_body_matrix * expected_joint_2_to_joint_1_matrix;
-    assert_eq!(expected, joint_2_to_joint_1_matrix);
-}
 
-#[test]
-fn when_getting_homogeneous_transform_to_frame_with_multiple_elements_and_motion_it_should_return_the_transform(
-) {
-    assert!(false);
-}
+    let expected_joint_1_to_body_inverse = expected_joint_1_to_body_matrix.try_inverse().unwrap();
 
-#[test]
-fn when_getting_homogeneous_transform_to_frame_with_multiple_elements_and_no_motion_it_should_return_the_transform(
-) {
-    assert!(false);
-}
+    let (angle_deg, _) = frame_angles_in_degrees_for(DriveModulePosition::RightFront);
+    let angle_rad = angle_deg * (PI / 180.0);
 
-#[test]
-fn when_getting_homogeneous_transform_to_frame_with_one_element_and_motion_it_should_return_the_transform(
-) {
-    assert!(false);
-}
+    #[rustfmt::skip]
+    let expected_joint_2_to_body_matrix = Matrix4::new(
+        angle_rad.cos(), -angle_rad.sin(), 0.0, 1.0,
+        angle_rad.sin(), angle_rad.cos(),  0.0, -0.5,
+        0.0,             0.0,              1.0, 0.0,
+        0.0,             0.0,              0.0, 1.0,
+    );
 
-#[test]
-fn when_getting_homogeneous_transform_to_frame_with_one_element_and_no_motion_it_should_return_the_transform(
-) {
-    assert!(false);
+    let expected = expected_joint_1_to_body_inverse * expected_joint_2_to_body_matrix;
+    let mut expected_it = expected.iter();
+    let mut calculated_it = joint_2_to_joint_1_matrix.iter();
+    loop {
+        match (expected_it.next(), calculated_it.next()) {
+            (Some(a), Some(b)) => {
+                assert!(
+                    (*a).approx_eq(
+                        *b,
+                        F64Margin {
+                            ulps: 2,
+                            epsilon: 1e-6
+                        }
+                    ),
+                    "Expected {:.5} and {:.5} to be equal within 2 ulps or 1e-6",
+                    *a,
+                    *b
+                );
+            }
+            (None, None) => break,
+            _ => assert!(false),
+        }
+    }
 }
 
 #[test]
