@@ -116,7 +116,7 @@ fn test_task_execution_with_unregistered_task() {
 #[test]
 fn test_task_cancellation() {
     // Create a new HardwareChangeProcessor
-    let processing_rate_in_hz = 10;
+    let processing_rate_in_hz = 1000;
     let scheduler = HardwareChangeProcessor::new(processing_rate_in_hz);
 
     // Create a flag to indicate task execution
