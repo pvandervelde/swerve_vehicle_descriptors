@@ -357,23 +357,6 @@ impl KinematicTree {
             .map(|id| self.get_element_unchecked(id)))
     }
 
-    /// Returns a value indicating if the given reference frame has children.
-    ///
-    /// ## Parameters
-    ///
-    /// * 'id' - The ID of the reference frame
-    ///
-    /// ## Errors
-    ///
-    /// * [Error::InvalidFrameID] - Returned when there is no reference frame with ID 'id'
-    fn has_children(&self, id: &FrameID) -> Result<bool, Error> {
-        if !self.elements.contains_key(id) {
-            return Err(Error::InvalidFrameID { id: id.clone() });
-        }
-
-        Ok(self.parent_of.contains_key(id))
-    }
-
     /// Returns a value indicating whether the kinematic tree contains a [ReferenceFrame]
     /// with the given ID.
     ///
@@ -382,24 +365,6 @@ impl KinematicTree {
     /// * 'id' - The ID of the reference frame
     fn has_element(&self, id: &FrameID) -> bool {
         self.elements.contains_key(id)
-    }
-
-    /// Returns a value indicating whether the [ReferenceFrame] with the given ID has
-    /// a parent frame.
-    ///
-    /// ## Parameters
-    ///
-    /// * 'id' - The ID of the reference frame
-    ///
-    /// ## Errors
-    ///
-    /// * [Error::InvalidFrameID] - Returned when there is no reference frame with ID 'id'
-    fn has_parent(&self, id: &FrameID) -> Result<bool, Error> {
-        if !self.elements.contains_key(id) {
-            return Err(Error::InvalidFrameID { id: id.clone() });
-        }
-
-        Ok(self.parent_of.contains_key(id))
     }
 
     /// Returns a value indicating whether the [ReferenceFrame] with the given ID is the
@@ -460,7 +425,7 @@ impl KinematicTree {
     }
 }
 
-/// A kinematic model for a swerve robot.
+/// A motion model for a swerve robot.
 ///
 /// It is assumed that the robot will have N wheels, where N > 2. Each wheel has
 /// a single steering frame in the wheel-to-body chain of [ReferenceFrame] elements.
@@ -1024,8 +989,8 @@ impl MotionModel {
     /// ## Errors
     ///
     /// * [Error::MissingFrameElement] - Returned when the [ReferenceFrame] is not an actuated joint.
-    pub fn get_actuator(&mut self, frame_id: &FrameID) -> Result<&mut Actuator, Error> {
-        match self.actuators.get_mut(frame_id) {
+    pub fn get_actuator(&self, frame_id: &FrameID) -> Result<&Actuator, Error> {
+        match self.actuators.get(frame_id) {
             Some(a) => return Ok(a),
             None => {
                 return Err(Error::MissingFrameElement {
@@ -1607,8 +1572,6 @@ impl MotionModel {
         actuator: &Actuator,
         transform: &Isometry3<f64>,
     ) -> Isometry3<f64> {
-        let mut result = Matrix4::<f64>::identity();
-
         let distance_rotated = match actuator.get_value() {
             Ok(v) => v.get_position(),
             Err(_) => 0.0,
@@ -1629,8 +1592,6 @@ impl MotionModel {
         actuator: &Actuator,
         transform: &Isometry3<f64>,
     ) -> Isometry3<f64> {
-        let mut result = Matrix4::<f64>::identity();
-
         let distance_rotated = match actuator.get_value() {
             Ok(v) => v.get_position(),
             Err(_) => 0.0,
@@ -1651,8 +1612,6 @@ impl MotionModel {
         actuator: &Actuator,
         transform: &Isometry3<f64>,
     ) -> Isometry3<f64> {
-        let mut result = Matrix4::<f64>::identity();
-
         let distance_rotated = match actuator.get_value() {
             Ok(v) => v.get_position(),
             Err(_) => 0.0,

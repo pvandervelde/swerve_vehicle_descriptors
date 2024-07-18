@@ -2,9 +2,7 @@ use std::{f64::consts::PI, time::Duration};
 
 use crossbeam_channel::{Receiver, Sender};
 use float_cmp::{ApproxEq, F64Margin};
-use nalgebra::{
-    Matrix3, Matrix4, Matrix6, RowVector4, Translation3, UnitQuaternion, Vector3, Vector4,
-};
+use nalgebra::{Matrix3, Matrix4, Matrix6, RowVector4, Translation3, UnitQuaternion, Vector3};
 
 use crate::{
     change_notification_processing::{ChangeID, HardwareChangeProcessor},
@@ -260,6 +258,27 @@ fn when_adding_an_element_to_a_kinematic_tree_it_should_only_be_a_wheel_in_a_spe
 
     assert_eq!(1, wheels.len());
     assert_eq!(&third_id, wheels[0].id());
+}
+
+#[test]
+fn when_adding_an_element_to_a_kinematic_tree_referencing_itself_it_should_error() {
+    let mut tree = KinematicTree::new();
+
+    let first_name = "a".to_string();
+    let first_element = create_generic_non_actuated_element(first_name);
+    let first_id = first_element.id().clone();
+
+    // Get the mutable tree to add something
+    {
+        assert!(tree
+            .add_element(
+                first_element,
+                first_id,
+                Translation3::<f64>::identity(),
+                UnitQuaternion::identity()
+            )
+            .is_err())
+    }
 }
 
 #[test]
@@ -1199,6 +1218,9 @@ fn when_adding_actuated_chassis_element_it_should_store_the_element() {
 
     let chassis = chassis_result.unwrap();
     assert_eq!(name, chassis.name());
+
+    let actuator_result = model.get_actuator(&frame_id);
+    assert!(actuator_result.is_ok());
 }
 
 #[test]
@@ -2391,11 +2413,29 @@ fn when_checking_is_valid_with_valid_model_it_should_approve() {
 }
 
 #[test]
+fn when_getting_actuator_with_non_existing_element_it_should_error() {
+    let model = MotionModel::new();
+
+    let non_existing_id = FrameID::new();
+    let actuator_result = model.get_actuator(&non_existing_id);
+    assert!(actuator_result.is_err());
+}
+
+#[test]
 fn when_getting_body_without_elements_it_should_error() {
     let model = MotionModel::new();
 
     let result = model.get_body();
     assert!(result.is_err());
+}
+
+#[test]
+fn when_getting_chassis_element_with_non_existing_element_it_should_error() {
+    let model = MotionModel::new();
+
+    let non_existing_id = FrameID::new();
+    let actuator_result = model.get_chassis_element(&non_existing_id);
+    assert!(actuator_result.is_err());
 }
 
 #[test]
@@ -4512,6 +4552,118 @@ fn when_getting_homogeneous_transform_to_parent_with_revolute_z_motion_should_re
             _ => assert!(false),
         }
     }
+}
+
+#[test]
+fn when_getting_active_suspension_with_actuators_matching_wheels_it_should_return_false() {
+    let mut model = MotionModel::new();
+    let body_id = add_body_to_model(&mut model).unwrap();
+
+    // Leg 1
+    let suspension_id_leg1 =
+        add_suspension_to_model(&mut model, &body_id, DriveModulePosition::LeftFront).unwrap();
+
+    let (sender1, receiver1) = crossbeam_channel::unbounded();
+    let (cmd_sender1, _) = crossbeam_channel::unbounded();
+    let mut hardware_actuator1 = MockHardwareActuator {
+        receiver: receiver1,
+        sender: sender1.clone(),
+        command_sender: cmd_sender1,
+        update_sender: None,
+        id: None,
+    };
+    let change_processor = Box::new(HardwareChangeProcessor::new(10));
+
+    let actuator1 = Actuator::new(&mut hardware_actuator1, &change_processor).unwrap();
+
+    let steering_id_leg1 = add_steering_to_model(
+        &mut model,
+        &suspension_id_leg1,
+        DriveModulePosition::LeftFront,
+        actuator1,
+    )
+    .unwrap();
+
+    let (wheel_sender1, wheel_receiver1) = crossbeam_channel::unbounded();
+    let (wheel_cmd_sender1, _) = crossbeam_channel::unbounded();
+    let mut wheel_hardware_actuator1 = MockHardwareActuator {
+        receiver: wheel_receiver1,
+        sender: wheel_sender1,
+        command_sender: wheel_cmd_sender1,
+        update_sender: None,
+        id: None,
+    };
+
+    let wheel_actuator1 = Actuator::new(&mut wheel_hardware_actuator1, &change_processor).unwrap();
+
+    let _ = add_wheel_to_model(&mut model, &steering_id_leg1, wheel_actuator1).unwrap();
+
+    assert!(!model.has_active_suspension());
+}
+
+#[test]
+fn when_getting_active_suspension_with_more_actuators_than_wheels_it_should_return_true() {
+    let mut model = MotionModel::new();
+    let body_id = add_body_to_model(&mut model).unwrap();
+
+    // Leg 1
+    let (sender, receiver) = crossbeam_channel::unbounded();
+    let (cmd_sender, _) = crossbeam_channel::unbounded();
+    let mut hardware_actuator = MockHardwareActuator {
+        receiver: receiver,
+        sender: sender.clone(),
+        command_sender: cmd_sender,
+        update_sender: None,
+        id: None,
+    };
+    let change_processor = Box::new(HardwareChangeProcessor::new(1000));
+
+    let actuator = Actuator::new(&mut hardware_actuator, &change_processor).unwrap();
+    let suspension_id_leg1 = add_actuated_joint_to_model(
+        &mut model,
+        &body_id,
+        DriveModulePosition::LeftFront,
+        FrameDofType::RevoluteZ,
+        actuator,
+    )
+    .unwrap();
+
+    let (sender1, receiver1) = crossbeam_channel::unbounded();
+    let (cmd_sender1, _) = crossbeam_channel::unbounded();
+    let mut hardware_actuator1 = MockHardwareActuator {
+        receiver: receiver1,
+        sender: sender1.clone(),
+        command_sender: cmd_sender1,
+        update_sender: None,
+        id: None,
+    };
+    let change_processor = Box::new(HardwareChangeProcessor::new(10));
+
+    let actuator1 = Actuator::new(&mut hardware_actuator1, &change_processor).unwrap();
+
+    let steering_id_leg1 = add_steering_to_model(
+        &mut model,
+        &suspension_id_leg1,
+        DriveModulePosition::LeftFront,
+        actuator1,
+    )
+    .unwrap();
+
+    let (wheel_sender1, wheel_receiver1) = crossbeam_channel::unbounded();
+    let (wheel_cmd_sender1, _) = crossbeam_channel::unbounded();
+    let mut wheel_hardware_actuator1 = MockHardwareActuator {
+        receiver: wheel_receiver1,
+        sender: wheel_sender1,
+        command_sender: wheel_cmd_sender1,
+        update_sender: None,
+        id: None,
+    };
+
+    let wheel_actuator1 = Actuator::new(&mut wheel_hardware_actuator1, &change_processor).unwrap();
+
+    let _ = add_wheel_to_model(&mut model, &steering_id_leg1, wheel_actuator1).unwrap();
+
+    assert!(model.has_active_suspension());
 }
 
 #[test]
