@@ -112,7 +112,7 @@ impl ActuatorAvailableRatesOfChange {
     /// ## Examples
     ///
     /// ```
-    /// use swerve_model::hardware::actuator_interface::ActuatorAvailableRatesOfChange;
+    /// use swerve_vehicle_descriptors::hardware::actuator_interface::ActuatorAvailableRatesOfChange;
     ///
     /// let result = ActuatorAvailableRatesOfChange::new(minimum_velocity, maximum_velocity, minimum_acceleration, maximum_acceleration, minimum_jerk, maximum_jerk);
     /// assert_eq!(result, );
