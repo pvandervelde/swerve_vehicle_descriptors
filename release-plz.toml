@@ -1,0 +1,30 @@
+[workspace]
+# disallow updating repositories with uncommitted changes
+allow_dirty = false
+
+# path of the git-cliff configuration
+changelog_config = "cliff.toml"
+
+# enable changelog updates
+changelog_update = true
+
+# update dependencies with `cargo update`
+dependencies_update = false
+
+# disable GitHub releases
+git_release_enable = true
+
+# create tags for the releases
+git_tag_enable = true
+
+# labels for the release PR
+pr_labels = ["release"]
+
+# enable publishing to crates.io
+publish = true
+
+# disallow packaging with uncommitted changes
+publish_allow_dirty = false
+
+# disable running `cargo-semver-checks`
+semver_check = true
