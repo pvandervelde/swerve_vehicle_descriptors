@@ -12,7 +12,7 @@ changelog_update = true
 dependencies_update = false
 
 # disable GitHub releases
-git_release_enable = false
+git_release_enable = true
 
 # create tags for the releases
 git_tag_enable = true
