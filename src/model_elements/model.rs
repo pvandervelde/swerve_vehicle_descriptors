@@ -1,3 +1,5 @@
+//! Defines the kinematic tree and the robot model.
+
 extern crate nalgebra as na;
 
 use std::collections::{BTreeSet, HashMap};
@@ -40,12 +42,16 @@ impl<I> OptionIterator<I> {
     ///
     /// Create an empty iterator
     ///
-    /// ```rust
-    /// let empty_iterator = OptionIterator::new(None);
+    /// ```
+    /// use swerve_vehicle_descriptors::model_elements::model::OptionIterator;
+    ///
+    /// let empty_iterator: OptionIterator<f64> = OptionIterator::new(None);
     /// ```
     ///
     /// Create an iterator with items
     /// ```
+    /// use swerve_vehicle_descriptors::model_elements::model::OptionIterator;
+    ///
     /// let collection = vec![1, 2, 3, 4, 5];
     /// let full_iterator = OptionIterator::new(Some(collection.iter()));
     /// ```
@@ -449,7 +455,7 @@ pub struct MotionModel {
     /// The collection of [Actuator] instances
     actuators: HashMap<FrameID, Actuator>,
 
-    /// The collection of [Sensor] instances
+    /// The collection of [JointSensor] instances
     sensors: HashMap<FrameID, JointSensor>,
 
     /// The collection of [JointConstraint] instances
@@ -1487,7 +1493,7 @@ impl MotionModel {
         frame_id.is_none()
     }
 
-    /// Returns a new [SwerveRobotModel] instance.
+    /// Returns a new [MotionModel] instance.
     pub fn new() -> Self {
         Self {
             reference_frames: KinematicTree::new(),

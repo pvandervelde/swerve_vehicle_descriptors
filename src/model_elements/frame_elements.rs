@@ -1,3 +1,5 @@
+//! Defines the different frame elements that are used to create a robot model
+
 extern crate nalgebra as na;
 
 use std::{
@@ -73,7 +75,7 @@ static FRAME_ID_COUNTER: AtomicUsize = AtomicUsize::new(1);
 pub struct FrameID {
     /// The internal value that forms the actual ID. This is set in a
     /// thread-safe maner
-    /// Based on this StackOverflow answer: https://stackoverflow.com/a/32936288/539846
+    // Based on this StackOverflow answer: https://stackoverflow.com/a/32936288/539846
     id: usize,
 }
 
@@ -83,7 +85,7 @@ impl FrameID {
         &self
     }
 
-    /// Returns a value indicating if the given ID is the [none] ID.
+    /// Returns a value indicating if the given ID is the [FrameID::none()] ID.
     pub fn is_none(&self) -> bool {
         self.id == NONE_FRAME_ID
     }
@@ -306,7 +308,7 @@ impl JointSensor {
         Err(Error::FailedToReadActuatorJointState)
     }
 
-    /// Creates a new [Sensor] instance
+    /// Creates a new [JointSensor] instance
     ///
     /// ## Parameters
     ///
