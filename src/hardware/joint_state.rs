@@ -1,3 +1,5 @@
+//! Provides structures that describe the joint state
+
 #[cfg(test)]
 #[path = "joint_state_tests.rs"]
 mod joint_state_tests;
@@ -124,7 +126,7 @@ impl JointStateRange {
         &self.minimum.get_velocity()
     }
 
-    /// Creates a new [ActuatorState] with the given minimum and maximum
+    /// Creates a new [JointStateRange] with the given minimum and maximum
     ///
     /// ## Parameters
     ///
