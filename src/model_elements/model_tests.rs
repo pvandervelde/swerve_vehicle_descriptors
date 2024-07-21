@@ -1027,7 +1027,7 @@ fn add_actuated_joint_to_model<'a>(
     let spatial_inertia = Matrix6::<f64>::identity();
 
     model.add_actuated_chassis_element(
-        name.clone(),
+        name,
         dof,
         parent_id.clone(),
         position_relative_to_parent,
@@ -1050,7 +1050,7 @@ fn add_body_to_model(model: &mut MotionModel) -> Result<FrameID, Error> {
     let spatial_inertia = Matrix6::<f64>::identity();
 
     model.add_body(
-        name.clone(),
+        name,
         position_relative_to_world,
         orientation_relative_to_world,
         mass,
@@ -1081,7 +1081,7 @@ fn add_steering_to_model<'a>(
     let spatial_inertia = Matrix6::<f64>::identity();
 
     model.add_steering_element(
-        name.clone(),
+        name,
         parent_id.clone(),
         position_relative_to_parent,
         orientation_relative_to_parent,
@@ -1113,7 +1113,7 @@ fn add_suspension_to_model(
     let spatial_inertia = Matrix6::<f64>::identity();
 
     model.add_suspension_element(
-        name.clone(),
+        name,
         FrameDofType::PrismaticZ,
         parent_id.clone(),
         position_relative_to_parent,
@@ -1144,7 +1144,7 @@ fn add_wheel_to_model<'a>(
     let spatial_inertia = Matrix6::<f64>::identity();
 
     model.add_wheel(
-        name.clone(),
+        name,
         parent_id.clone(),
         position_relative_to_parent,
         orientation_relative_to_parent,

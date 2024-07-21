@@ -1,3 +1,5 @@
+//! Defines the interface for sensors
+
 use crossbeam_channel::{Receiver, Sender};
 
 use crate::{change_notification_processing::ChangeID, number_space::NumberSpaceType, Error};
@@ -6,7 +8,7 @@ use super::joint_state::{JointState, JointStateRange};
 
 /// Defines the interface for hardware that senses the state of a robot joint element.
 pub trait HardwareSensor {
-    /// Returns the [Receiver] that is used to receive the current [ActuatorState]
+    /// Returns the [Receiver] that is used to receive the current [JointState]
     /// and the currently available minimum and maximum rate of change.
     fn get_current_state_receiver(&self) -> Result<Receiver<JointState>, Error>;
 

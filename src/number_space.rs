@@ -1,3 +1,22 @@
+//! Defines different a way to describe a space of numbers and how these spaces behave at the
+//! boundaries.
+//!
+//! For instance a linear unbounded space has boundaries at +infinity and -infinity. This
+//! type of space does not wrap around, i.e. at they only way to get from the lower boundary to the
+//! upper boundary is to pass through all the numbers between the boundaries.
+//! On the contrairy to this a periodic number space has lower and upper boundaries at specific
+//! non-infinity numbers and wraps around, i.e. in order to go from the lower boundary to the upper
+//! boundary you can pass through all the numbers between the lower and upper boundary, or you can
+//! go backwards from lower boundary and end up directly at the upper boundary. An example of this
+//! kind of space is a space that describes the position on a circle.
+//!
+//! Currently implemented are a linear unbounded space and an angular bounded space. The
+//! [to_number_space()] function is used to create either of these number spaces. For the angular
+//! space you can specify the starting angle in radians by creating the [NumberSpaceType::AngularLimited]
+//! value with the given starting angle. The [to_number_space()] function assumes that the
+//! angular number space is 2 * [Pi](core::f64::consts::PI) in size.
+//!
+
 use std::f64::consts::PI;
 
 #[cfg(test)]
@@ -24,19 +43,57 @@ pub trait RealNumberValueSpace {
     ///
     /// For unbounded value spaces there will only be one distance, but for bounded value spaces
     /// there may be multiple distances depending on if the boundaries are periodic or not.
-    /// For example, the distance between 0 and 2pi in a circular space running from -pi to +pi is 2pi,
-    /// but the distance between 0 and 4pi is 2pi as well. Similarly the distance between 1/4 pi and
-    /// -1/4 pi is 1/2 pi, and 3/2 pi depending on the direction of travel.
     ///
-    /// * 'start' - The starting value.
-    /// * 'end' - The ending value
+    /// ## Parameters
+    ///
+    /// * `start` - The starting value
+    /// * `end` - The ending value
+    ///
+    /// ## Example
+    ///
+    /// ```
+    /// use core::f64::consts::PI;
+    /// use swerve_vehicle_descriptors::number_space::{ NumberSpaceType, to_number_space };
+    ///
+    /// // Create a linear space
+    /// let space = to_number_space(NumberSpaceType::LinearUnlimited);
+    /// let linear_distances = space.distance_between_values(1.0, 2.0);
+    /// assert!(linear_distances.len() == 1);
+    /// assert_eq!(1.0, linear_distances[0]);
+    ///
+    /// // Create a periodic space that starts at 0.0 and runs to 2 * PI
+    /// let space = to_number_space(NumberSpaceType::AngularLimited { start_angle_in_radians: 0.0 });
+    /// let angular_distances = space.distance_between_values(0.0, PI);
+    /// assert!(angular_distances.len() == 2);
+    /// assert_eq!(PI, angular_distances[0]);
+    /// assert_eq!(-PI, angular_distances[1]);
+    /// ```
     fn distance_between_values(&self, start: f64, end: f64) -> Vec<f64>;
 
     /// Returns the value in the space that is closest to the target value
     ///
     /// Normalizing the value is useful in periodic or limited number spaces.
     ///
-    /// * 'value' - The value that should be normalized.
+    /// ## Parameters
+    ///
+    /// * `value` - The value that should be normalized.
+    ///
+    /// ## Example
+    ///
+    /// ```
+    /// use core::f64::consts::PI;
+    /// use swerve_vehicle_descriptors::number_space::{ NumberSpaceType, to_number_space };
+    ///
+    /// // Create a linear space
+    /// let space = to_number_space(NumberSpaceType::LinearUnlimited);
+    /// let value = space.normalize_value(1.0);
+    /// assert_eq!(1.0, value);
+    ///
+    /// // Create a periodic space that starts at 0.0 and runs to 2 * PI
+    /// let space = to_number_space(NumberSpaceType::AngularLimited { start_angle_in_radians: 0.0 });
+    /// let value = space.normalize_value(5.0 * PI);
+    /// assert_eq!(PI, value);
+    /// ```
     fn normalize_value(&self, value: f64) -> f64;
 
     /// Returns the smallest distance between two values in the number space.
@@ -44,6 +101,28 @@ pub trait RealNumberValueSpace {
     /// The smallest distance for unlimited number spaces is equal to the distance.
     /// between the numbers. However for a periodic number space the distance across
     /// a boundary may be shorter.
+    ///
+    /// ## Parameters
+    ///
+    /// * `start` - The starting value.
+    /// * `end` - The ending value
+    ///
+    /// ## Example
+    ///
+    /// ```
+    /// use core::f64::consts::PI;
+    /// use swerve_vehicle_descriptors::number_space::{ NumberSpaceType, to_number_space };
+    ///
+    /// // Create a linear space
+    /// let space = to_number_space(NumberSpaceType::LinearUnlimited);
+    /// let value = space.smallest_distance_between_values(1.0, 2.0);
+    /// assert_eq!(1.0, value);
+    ///
+    /// // Create a periodic space that starts at 0.0 and runs to 2 * PI
+    /// let space = to_number_space(NumberSpaceType::AngularLimited { start_angle_in_radians: 0.0 });
+    /// let value = space.smallest_distance_between_values(0.0, 1.5 * PI);
+    /// assert_eq!(-0.5 * PI, value);
+    /// ```
     fn smallest_distance_between_values(&self, start: f64, end: f64) -> f64;
 }
 
@@ -165,7 +244,25 @@ impl RealNumberValueSpace for PeriodicBoundedCircularSpace {
 }
 
 /// Returns a [RealNumberValueSpace] instance for the given number space type.
-pub(crate) fn to_number_space(number_space_type: NumberSpaceType) -> Box<dyn RealNumberValueSpace> {
+///
+/// ```
+/// use core::f64::consts::PI;
+/// use swerve_vehicle_descriptors::number_space::{ NumberSpaceType, to_number_space };
+///
+/// // Create a linear space
+/// let space = to_number_space(NumberSpaceType::LinearUnlimited);
+/// let linear_distances = space.distance_between_values(1.0, 2.0);
+/// assert!(linear_distances.len() == 1);
+/// assert_eq!(1.0, linear_distances[0]);
+///
+/// // Create a periodic space that starts at 0.0 and runs to 2 * PI
+/// let space = to_number_space(NumberSpaceType::AngularLimited { start_angle_in_radians: 0.0 });
+/// let angular_distances = space.distance_between_values(0.0, PI);
+/// assert!(angular_distances.len() == 2);
+/// assert_eq!(PI, angular_distances[0]);
+/// assert_eq!(-PI, angular_distances[1]);
+/// ```
+pub fn to_number_space(number_space_type: NumberSpaceType) -> Box<dyn RealNumberValueSpace> {
     match number_space_type {
         NumberSpaceType::LinearUnlimited => Box::new(LinearUnboundedSpace::new()),
         NumberSpaceType::AngularLimited {

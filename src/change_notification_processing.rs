@@ -1,3 +1,5 @@
+//! Provides types for the (asynchronous) processing of messages from/to hardware
+
 use std::{
     collections::HashMap,
     fmt::Display,
@@ -32,7 +34,7 @@ static CHANGE_ID_COUNTER: AtomicUsize = AtomicUsize::new(1);
 pub struct ChangeID {
     /// The internal value that forms the actual ID. This is set in a
     /// thread-safe maner
-    /// Based on this StackOverflow answer: https://stackoverflow.com/a/32936288/539846
+    // Based on this StackOverflow answer: https://stackoverflow.com/a/32936288/539846
     id: usize,
 }
 
@@ -42,7 +44,7 @@ impl ChangeID {
         &self
     }
 
-    /// Returns a value indicating if the given ID is the [none] ID.
+    /// Returns a value indicating if the given ID is the [ChangeID::none()] ID.
     pub fn is_none(&self) -> bool {
         self.id == NONE_CHANGE_ID
     }
@@ -107,7 +109,7 @@ impl HardwareChangeProcessor {
     ///
     /// ## Parameters
     ///
-    /// 'closure' - The task that should be executed.
+    /// `closure` - The task that should be executed.
     pub fn add(
         &self,
         closure: Box<dyn Fn() + Sync + Send>,
@@ -128,14 +130,14 @@ impl HardwareChangeProcessor {
         thread::spawn(f)
     }
 
-    /// Creates a new [TaskScheduler] instance
+    /// Creates a new [HardwareChangeProcessor] instance
     ///
     /// This creates a new background thread that waits for [ChangeID]s to be received. Once a
     /// [ChangeID] is received
     ///
     /// ## Parameters
     ///
-    /// * 'processing_rate_in_hz' - The rate at which tasks should be processed.
+    /// * `processing_rate_in_hz` - The rate at which tasks should be processed.
     pub fn new(processing_rate_in_hz: i32) -> Self {
         let (s, r) = crossbeam_channel::unbounded();
 
