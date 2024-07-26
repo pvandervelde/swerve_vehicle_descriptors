@@ -1,6 +1,7 @@
 [package]
 authors = ["Patrick van der Velde"]
 edition = "2021"
+license = "Apache-2.0"
 name = "swerve_vehicle_descriptors"
 repository = "https://github.com/pvandervelde/swerve_vehicle_descriptors"
 version = "0.1.0"
@@ -26,4 +27,8 @@ criterion = { version = "0.5.1", features = ["csv_output", "html_reports"] }
 
 [[bench]]
 name = "number_space"
+harness = false
+
+[[bench]]
+name = "model"
 harness = false
