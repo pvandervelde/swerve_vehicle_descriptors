@@ -20,3 +20,10 @@ thiserror = "1.0.61"
 [dev-dependencies]
 criterion = { version = "0.5.1", features = ["csv_output", "html_reports"] }
 
+#
+# Benchmarking
+#
+
+[[bench]]
+name = "number_space"
+harness = false
