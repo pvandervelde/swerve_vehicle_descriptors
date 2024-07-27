@@ -1,14 +1,34 @@
 [package]
 authors = ["Patrick van der Velde"]
 edition = "2021"
+license = "Apache-2.0"
 name = "swerve_vehicle_descriptors"
 repository = "https://github.com/pvandervelde/swerve_vehicle_descriptors"
 version = "0.1.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+#
+# Dependencies
+#
+
 [dependencies]
 crossbeam-channel = "0.5.13"
 float-cmp = "0.9.0"
 nalgebra = "0.33.0"
 thiserror = "1.0.61"
+
+[dev-dependencies]
+criterion = { version = "0.5.1", features = ["csv_output", "html_reports"] }
+
+#
+# Benchmarking
+#
+
+[[bench]]
+name = "number_space"
+harness = false
+
+[[bench]]
+name = "model"
+harness = false
