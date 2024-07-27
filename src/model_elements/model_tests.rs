@@ -258,6 +258,8 @@ fn when_adding_an_element_to_a_kinematic_tree_it_should_only_be_a_wheel_in_a_spe
 
     assert_eq!(1, wheels.len());
     assert_eq!(&third_id, wheels[0].id());
+
+    assert_eq!(1, imtree.number_of_wheels());
 }
 
 #[test]
@@ -431,6 +433,139 @@ fn when_adding_an_element_with_an_unknown_parent_to_a_kinematic_tree_it_should_e
             ),
         };
     }
+}
+
+#[test]
+fn when_adding_leaf_elements_to_a_kinematic_tree_it_should_be_multiple_wheels() {
+    let mut tree = KinematicTree::new();
+
+    let body_name = "body".to_string();
+    let body_element = create_generic_non_actuated_element(body_name);
+    let body_id = body_element.id().clone();
+
+    let first_wheel_name = "wheel_1".to_string();
+    let first_wheel_element = create_wheel_element(first_wheel_name);
+    let first_wheel_id = first_wheel_element.id().clone();
+
+    let second_wheel_name = "wheel_2".to_string();
+    let second_wheel_element = create_wheel_element(second_wheel_name);
+    let second_wheel_id = second_wheel_element.id().clone();
+
+    let third_wheel_name = "wheel_3".to_string();
+    let third_wheel_element = create_wheel_element(third_wheel_name);
+    let third_wheel_id = third_wheel_element.id().clone();
+
+    let fourth_wheel_name = "wheel_4".to_string();
+    let fourth_wheel_element = create_wheel_element(fourth_wheel_name);
+    let fourth_wheel_id = fourth_wheel_element.id().clone();
+
+    // Get the mutable tree to add something
+    {
+        match tree.add_element(
+            body_element,
+            FrameID::none(),
+            Translation3::<f64>::identity(),
+            UnitQuaternion::identity(),
+        ) {
+            Err(e) => {
+                assert!(
+                    false,
+                    "Got an error adding an element to the tree. Should not have. Error was: {}",
+                    e
+                );
+            }
+            Ok(id) => {
+                assert_eq!(id.as_ref(), &body_id);
+            }
+        };
+
+        match tree.add_element(
+            first_wheel_element,
+            body_id.clone(),
+            Translation3::<f64>::identity(),
+            UnitQuaternion::identity(),
+        ) {
+            Err(e) => {
+                assert!(
+                    false,
+                    "Got an error adding an element to the tree. Should not have. Error was: {}",
+                    e
+                );
+            }
+            Ok(id) => {
+                assert_eq!(id.as_ref(), &first_wheel_id);
+            }
+        };
+
+        match tree.add_element(
+            second_wheel_element,
+            body_id.clone(),
+            Translation3::<f64>::identity(),
+            UnitQuaternion::identity(),
+        ) {
+            Err(e) => {
+                assert!(
+                    false,
+                    "Got an error adding an element to the tree. Should not have. Error was: {}",
+                    e
+                );
+            }
+            Ok(id) => {
+                assert_eq!(id.as_ref(), &second_wheel_id);
+            }
+        };
+
+        match tree.add_element(
+            third_wheel_element,
+            body_id.clone(),
+            Translation3::<f64>::identity(),
+            UnitQuaternion::identity(),
+        ) {
+            Err(e) => {
+                assert!(
+                    false,
+                    "Got an error adding an element to the tree. Should not have. Error was: {}",
+                    e
+                );
+            }
+            Ok(id) => {
+                assert_eq!(id.as_ref(), &third_wheel_id);
+            }
+        };
+
+        match tree.add_element(
+            fourth_wheel_element,
+            body_id.clone(),
+            Translation3::<f64>::identity(),
+            UnitQuaternion::identity(),
+        ) {
+            Err(e) => {
+                assert!(
+                    false,
+                    "Got an error adding an element to the tree. Should not have. Error was: {}",
+                    e
+                );
+            }
+            Ok(id) => {
+                assert_eq!(id.as_ref(), &fourth_wheel_id);
+            }
+        };
+    }
+
+    let imtree = &tree;
+    let coll = imtree.get_elements().collect::<Vec<&ReferenceFrame>>();
+    assert_eq!(3, coll.len());
+
+    assert!(!imtree.is_wheel(&body_id).unwrap());
+    assert!(imtree.is_wheel(&first_wheel_id).unwrap());
+    assert!(imtree.is_wheel(&second_wheel_id).unwrap());
+    assert!(imtree.is_wheel(&third_wheel_id).unwrap());
+    assert!(imtree.is_wheel(&fourth_wheel_id).unwrap());
+
+    let wheels: Vec<&ReferenceFrame> = imtree.get_wheels().unwrap().collect();
+
+    assert_eq!(4, wheels.len());
+    assert_eq!(4, imtree.number_of_wheels());
 }
 
 #[test]
@@ -703,6 +838,14 @@ fn when_getting_the_children_with_no_parent_it_should_error() {
         ),
         Ok(_) => assert!(false, "Found children for an element that is not a parent."),
     };
+}
+
+#[test]
+fn when_checking_if_an_element_exists_with_nonexisting_element_it_should_return_false() {
+    let tree = KinematicTree::new();
+
+    let id_that_does_not_exist = FrameID::new();
+    assert!(!tree.has_element(&id_that_does_not_exist));
 }
 
 #[test]
