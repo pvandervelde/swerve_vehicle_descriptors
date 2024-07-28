@@ -554,7 +554,7 @@ fn when_adding_leaf_elements_to_a_kinematic_tree_it_should_be_multiple_wheels() 
 
     let imtree = &tree;
     let coll = imtree.get_elements().collect::<Vec<&ReferenceFrame>>();
-    assert_eq!(3, coll.len());
+    assert_eq!(5, coll.len());
 
     assert!(!imtree.is_wheel(&body_id).unwrap());
     assert!(imtree.is_wheel(&first_wheel_id).unwrap());
@@ -1355,6 +1355,7 @@ fn when_adding_actuated_chassis_element_it_should_store_the_element() {
     let frame = frame_result.unwrap();
     assert_eq!(dof, frame.degree_of_freedom_kind());
     assert!(frame.is_actuated());
+    assert!(model.is_actuated(&frame_id));
 
     let chassis_result = model.get_chassis_element(&frame_id);
     assert!(chassis_result.is_ok());
@@ -1396,6 +1397,48 @@ fn when_adding_actuated_chassis_element_with_invalid_parent_it_should_error() {
         name.clone(),
         FrameDofType::PrismaticX,
         FrameID::new(),
+        position_relative_to_parent,
+        orientation_relative_to_parent,
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+        actuator,
+    );
+
+    assert!(result.is_err());
+}
+
+#[test]
+fn when_adding_actuated_chassis_element_with_none_parent_it_should_error() {
+    let mut model = MotionModel::new();
+    let _ = add_body_to_model(&mut model).unwrap();
+
+    let name = "a".to_string();
+    let position_relative_to_parent = Translation3::<f64>::identity();
+    let orientation_relative_to_parent = UnitQuaternion::<f64>::identity();
+    let mass = 1.0;
+    let center_of_mass = Vector3::<f64>::identity();
+    let moment_of_inertia = Matrix3::<f64>::identity();
+    let spatial_inertia = Matrix6::<f64>::identity();
+
+    let (sender, receiver) = crossbeam_channel::unbounded();
+    let (cmd_sender, _cmd_receiver) = crossbeam_channel::unbounded();
+    let mut hardware_actuator = MockHardwareActuator {
+        receiver,
+        sender,
+        command_sender: cmd_sender,
+        update_sender: None,
+        id: None,
+    };
+    let change_processor = Box::new(HardwareChangeProcessor::new(10));
+
+    let actuator = Actuator::new(&mut hardware_actuator, &change_processor).unwrap();
+
+    let result = model.add_actuated_chassis_element(
+        name.clone(),
+        FrameDofType::PrismaticX,
+        FrameID::none(),
         position_relative_to_parent,
         orientation_relative_to_parent,
         mass,
@@ -1529,6 +1572,7 @@ fn when_adding_body_it_should_store_the_element() {
     let frame = frame_result.unwrap();
     assert_eq!(dof, frame.degree_of_freedom_kind());
     assert!(!frame.is_actuated());
+    assert!(!model.is_actuated(&id));
 
     let chassis_result = model.get_chassis_element(id);
     assert!(chassis_result.is_ok());
@@ -1589,6 +1633,7 @@ fn when_adding_static_chassis_element_it_should_store_the_element() {
     let frame = frame_result.unwrap();
     assert_eq!(dof, frame.degree_of_freedom_kind());
     assert!(!frame.is_actuated());
+    assert!(!model.is_actuated(&frame_id));
 
     let chassis_result = model.get_chassis_element(&frame_id);
     assert!(chassis_result.is_ok());
@@ -1613,6 +1658,33 @@ fn when_adding_static_chassis_element_with_invalid_parent_it_should_error() {
     let result = model.add_static_chassis_element(
         name.clone(),
         FrameID::new(),
+        position_relative_to_parent,
+        orientation_relative_to_parent,
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
+    assert!(result.is_err());
+}
+
+#[test]
+fn when_adding_static_chassis_element_with_none_parent_it_should_error() {
+    let mut model = MotionModel::new();
+    let _ = add_body_to_model(&mut model).unwrap();
+
+    let name = "a".to_string();
+    let position_relative_to_parent = Translation3::<f64>::identity();
+    let orientation_relative_to_parent = UnitQuaternion::<f64>::identity();
+    let mass = 1.0;
+    let center_of_mass = Vector3::<f64>::identity();
+    let moment_of_inertia = Matrix3::<f64>::identity();
+    let spatial_inertia = Matrix6::<f64>::identity();
+
+    let result = model.add_static_chassis_element(
+        name.clone(),
+        FrameID::none(),
         position_relative_to_parent,
         orientation_relative_to_parent,
         mass,
@@ -1742,6 +1814,7 @@ fn when_adding_steering_element_it_should_store_the_element() {
     let frame = frame_result.unwrap();
     assert_eq!(dof, frame.degree_of_freedom_kind());
     assert!(frame.is_actuated());
+    assert!(model.is_actuated(&frame_id));
 
     let chassis_result = model.get_chassis_element(&frame_id);
     assert!(chassis_result.is_ok());
@@ -1779,6 +1852,47 @@ fn when_adding_steering_element_with_invalid_parent_it_should_error() {
     let result = model.add_steering_element(
         name.clone(),
         FrameID::new(),
+        position_relative_to_parent,
+        orientation_relative_to_parent,
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+        actuator,
+    );
+
+    assert!(result.is_err());
+}
+
+#[test]
+fn when_adding_steering_element_with_none_parent_it_should_error() {
+    let mut model = MotionModel::new();
+    let _ = add_body_to_model(&mut model).unwrap();
+
+    let name = "a".to_string();
+    let position_relative_to_parent = Translation3::<f64>::identity();
+    let orientation_relative_to_parent = UnitQuaternion::<f64>::identity();
+    let mass = 1.0;
+    let center_of_mass = Vector3::<f64>::identity();
+    let moment_of_inertia = Matrix3::<f64>::identity();
+    let spatial_inertia = Matrix6::<f64>::identity();
+
+    let (sender, receiver) = crossbeam_channel::unbounded();
+    let (cmd_sender, _cmd_receiver) = crossbeam_channel::unbounded();
+    let mut hardware_actuator = MockHardwareActuator {
+        receiver,
+        sender,
+        command_sender: cmd_sender,
+        update_sender: None,
+        id: None,
+    };
+    let change_processor = Box::new(HardwareChangeProcessor::new(10));
+
+    let actuator = Actuator::new(&mut hardware_actuator, &change_processor).unwrap();
+
+    let result = model.add_steering_element(
+        name.clone(),
+        FrameID::none(),
         position_relative_to_parent,
         orientation_relative_to_parent,
         mass,
@@ -1974,6 +2088,7 @@ fn when_adding_suspension_element_it_should_store_the_element() {
     let frame = frame_result.unwrap();
     assert_eq!(dof, frame.degree_of_freedom_kind());
     assert!(!frame.is_actuated());
+    assert!(!model.is_actuated(&frame_id));
 
     let chassis_result = model.get_chassis_element(&frame_id);
     assert!(chassis_result.is_ok());
@@ -2001,6 +2116,37 @@ fn when_adding_suspension_element_with_invalid_parent_it_should_error() {
         name.clone(),
         FrameDofType::PrismaticX,
         FrameID::new(),
+        position_relative_to_parent,
+        orientation_relative_to_parent,
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+        joint_constraint,
+    );
+
+    assert!(result.is_err());
+}
+
+#[test]
+fn when_adding_suspension_element_with_none_parent_it_should_error() {
+    let mut model = MotionModel::new();
+    let _ = add_body_to_model(&mut model).unwrap();
+
+    let name = "a".to_string();
+    let position_relative_to_parent = Translation3::<f64>::identity();
+    let orientation_relative_to_parent = UnitQuaternion::<f64>::identity();
+    let mass = 1.0;
+    let center_of_mass = Vector3::<f64>::identity();
+    let moment_of_inertia = Matrix3::<f64>::identity();
+    let spatial_inertia = Matrix6::<f64>::identity();
+
+    let joint_constraint = JointConstraint::new();
+
+    let result = model.add_suspension_element(
+        name.clone(),
+        FrameDofType::PrismaticX,
+        FrameID::none(),
         position_relative_to_parent,
         orientation_relative_to_parent,
         mass,
@@ -2155,6 +2301,7 @@ fn when_adding_wheel_element_it_should_store_the_element() {
     let frame = frame_result.unwrap();
     assert_eq!(dof, frame.degree_of_freedom_kind());
     assert!(frame.is_actuated());
+    assert!(model.is_actuated(&frame_id));
 
     let chassis_result = model.get_chassis_element(&frame_id);
     assert!(chassis_result.is_ok());
@@ -2226,6 +2373,68 @@ fn when_adding_wheel_element_with_invalid_parent_it_should_error() {
     let result = model.add_wheel(
         name.clone(),
         FrameID::new(),
+        position_relative_to_parent,
+        orientation_relative_to_parent,
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+        actuator2,
+    );
+
+    assert!(result.is_err());
+}
+
+#[test]
+fn when_adding_wheel_element_with_none_parent_it_should_error() {
+    let mut model = MotionModel::new();
+    let body_id = add_body_to_model(&mut model).unwrap();
+
+    let (steering_sender, steering_receiver) = crossbeam_channel::unbounded();
+    let (steering_cmd_sender, _) = crossbeam_channel::unbounded();
+    let mut steering_hardware_actuator = MockHardwareActuator {
+        receiver: steering_receiver,
+        sender: steering_sender,
+        command_sender: steering_cmd_sender,
+        update_sender: None,
+        id: None,
+    };
+    let change_processor = Box::new(HardwareChangeProcessor::new(10));
+
+    let steering_actuator =
+        Actuator::new(&mut steering_hardware_actuator, &change_processor).unwrap();
+
+    let _ = add_steering_to_model(
+        &mut model,
+        &body_id,
+        DriveModulePosition::LeftFront,
+        steering_actuator,
+    )
+    .unwrap();
+
+    let name = "a".to_string();
+    let position_relative_to_parent = Translation3::<f64>::identity();
+    let orientation_relative_to_parent = UnitQuaternion::<f64>::identity();
+    let mass = 1.0;
+    let center_of_mass = Vector3::<f64>::identity();
+    let moment_of_inertia = Matrix3::<f64>::identity();
+    let spatial_inertia = Matrix6::<f64>::identity();
+
+    let (sender2, receiver2) = crossbeam_channel::unbounded();
+    let (cmd_sender2, _) = crossbeam_channel::unbounded();
+    let mut hardware_actuator2 = MockHardwareActuator {
+        receiver: receiver2,
+        sender: sender2.clone(),
+        command_sender: cmd_sender2,
+        update_sender: None,
+        id: None,
+    };
+
+    let actuator2 = Actuator::new(&mut hardware_actuator2, &change_processor).unwrap();
+
+    let result = model.add_wheel(
+        name.clone(),
+        FrameID::none(),
         position_relative_to_parent,
         orientation_relative_to_parent,
         mass,
@@ -2662,6 +2871,9 @@ fn when_getting_children_it_should_return_the_children() {
     let wheel_actuator2 = Actuator::new(&mut wheel_hardware_actuator2, &change_processor).unwrap();
 
     let _ = add_wheel_to_model(&mut model, &steering_id_leg2, wheel_actuator2).unwrap();
+
+    let wheel_count = model.number_of_wheels();
+    assert_eq!(2, wheel_count);
 
     let result = model.get_children(&body_id);
     assert!(result.is_ok());
@@ -4741,6 +4953,45 @@ fn when_getting_active_suspension_with_actuators_matching_wheels_it_should_retur
 
     let _ = add_wheel_to_model(&mut model, &steering_id_leg1, wheel_actuator1).unwrap();
 
+    // Leg 2
+    let suspension_id_leg2 =
+        add_suspension_to_model(&mut model, &body_id, DriveModulePosition::RightFront).unwrap();
+
+    let (sender2, receiver2) = crossbeam_channel::unbounded();
+    let (cmd_sender2, _) = crossbeam_channel::unbounded();
+    let mut hardware_actuator2 = MockHardwareActuator {
+        receiver: receiver2,
+        sender: sender2.clone(),
+        command_sender: cmd_sender2,
+        update_sender: None,
+        id: None,
+    };
+
+    let actuator2 = Actuator::new(&mut hardware_actuator2, &change_processor).unwrap();
+
+    let steering_id_leg2 = add_steering_to_model(
+        &mut model,
+        &suspension_id_leg2,
+        DriveModulePosition::RightFront,
+        actuator2,
+    )
+    .unwrap();
+
+    let (wheel_sender_2, wheel_receiver_2) = crossbeam_channel::unbounded();
+    let (wheel_cmd_sender_2, _) = crossbeam_channel::unbounded();
+    let mut wheel_hardware_actuator_2 = MockHardwareActuator {
+        receiver: wheel_receiver_2,
+        sender: wheel_sender_2,
+        command_sender: wheel_cmd_sender_2,
+        update_sender: None,
+        id: None,
+    };
+
+    let wheel_actuator_2 =
+        Actuator::new(&mut wheel_hardware_actuator_2, &change_processor).unwrap();
+
+    let _ = add_wheel_to_model(&mut model, &steering_id_leg2, wheel_actuator_2).unwrap();
+
     assert!(!model.has_active_suspension());
 }
 
@@ -4806,6 +5057,45 @@ fn when_getting_active_suspension_with_more_actuators_than_wheels_it_should_retu
 
     let _ = add_wheel_to_model(&mut model, &steering_id_leg1, wheel_actuator1).unwrap();
 
+    // Leg 2
+    let suspension_id_leg2 =
+        add_suspension_to_model(&mut model, &body_id, DriveModulePosition::RightFront).unwrap();
+
+    let (sender2, receiver2) = crossbeam_channel::unbounded();
+    let (cmd_sender2, _) = crossbeam_channel::unbounded();
+    let mut hardware_actuator2 = MockHardwareActuator {
+        receiver: receiver2,
+        sender: sender2.clone(),
+        command_sender: cmd_sender2,
+        update_sender: None,
+        id: None,
+    };
+
+    let actuator2 = Actuator::new(&mut hardware_actuator2, &change_processor).unwrap();
+
+    let steering_id_leg2 = add_steering_to_model(
+        &mut model,
+        &suspension_id_leg2,
+        DriveModulePosition::RightFront,
+        actuator2,
+    )
+    .unwrap();
+
+    let (wheel_sender_2, wheel_receiver_2) = crossbeam_channel::unbounded();
+    let (wheel_cmd_sender_2, _) = crossbeam_channel::unbounded();
+    let mut wheel_hardware_actuator_2 = MockHardwareActuator {
+        receiver: wheel_receiver_2,
+        sender: wheel_sender_2,
+        command_sender: wheel_cmd_sender_2,
+        update_sender: None,
+        id: None,
+    };
+
+    let wheel_actuator_2 =
+        Actuator::new(&mut wheel_hardware_actuator_2, &change_processor).unwrap();
+
+    let _ = add_wheel_to_model(&mut model, &steering_id_leg2, wheel_actuator_2).unwrap();
+
     assert!(model.has_active_suspension());
 }
 
@@ -4829,4 +5119,242 @@ fn when_getting_steering_frame_for_wheel_with_invalid_frame_it_should_error() {
     let result = model.get_steering_frame_for_wheel(&invalid_id);
 
     assert!(result.is_err());
+}
+
+#[test]
+fn when_testing_if_a_frame_is_an_ancestor_it_should_return_false_if_it_is_not() {
+    let mut model = MotionModel::new();
+    let body_id = add_body_to_model(&mut model).unwrap();
+
+    // Leg 1
+    let (sender, receiver) = crossbeam_channel::unbounded();
+    let (cmd_sender, _) = crossbeam_channel::unbounded();
+    let mut hardware_actuator = MockHardwareActuator {
+        receiver: receiver,
+        sender: sender.clone(),
+        command_sender: cmd_sender,
+        update_sender: None,
+        id: None,
+    };
+    let change_processor = Box::new(HardwareChangeProcessor::new(1000));
+
+    let actuator = Actuator::new(&mut hardware_actuator, &change_processor).unwrap();
+    let suspension_id_leg1 = add_actuated_joint_to_model(
+        &mut model,
+        &body_id,
+        DriveModulePosition::LeftFront,
+        FrameDofType::RevoluteZ,
+        actuator,
+    )
+    .unwrap();
+
+    let (sender1, receiver1) = crossbeam_channel::unbounded();
+    let (cmd_sender1, _) = crossbeam_channel::unbounded();
+    let mut hardware_actuator1 = MockHardwareActuator {
+        receiver: receiver1,
+        sender: sender1.clone(),
+        command_sender: cmd_sender1,
+        update_sender: None,
+        id: None,
+    };
+    let change_processor = Box::new(HardwareChangeProcessor::new(10));
+
+    let actuator1 = Actuator::new(&mut hardware_actuator1, &change_processor).unwrap();
+
+    let steering_id_leg1 = add_steering_to_model(
+        &mut model,
+        &suspension_id_leg1,
+        DriveModulePosition::LeftFront,
+        actuator1,
+    )
+    .unwrap();
+
+    let (wheel_sender1, wheel_receiver1) = crossbeam_channel::unbounded();
+    let (wheel_cmd_sender1, _) = crossbeam_channel::unbounded();
+    let mut wheel_hardware_actuator1 = MockHardwareActuator {
+        receiver: wheel_receiver1,
+        sender: wheel_sender1,
+        command_sender: wheel_cmd_sender1,
+        update_sender: None,
+        id: None,
+    };
+
+    let wheel_actuator1 = Actuator::new(&mut wheel_hardware_actuator1, &change_processor).unwrap();
+
+    let wheel_id_leg1 = add_wheel_to_model(&mut model, &steering_id_leg1, wheel_actuator1).unwrap();
+
+    // Leg 2
+    let suspension_id_leg2 =
+        add_suspension_to_model(&mut model, &body_id, DriveModulePosition::RightFront).unwrap();
+
+    let (sender2, receiver2) = crossbeam_channel::unbounded();
+    let (cmd_sender2, _) = crossbeam_channel::unbounded();
+    let mut hardware_actuator2 = MockHardwareActuator {
+        receiver: receiver2,
+        sender: sender2.clone(),
+        command_sender: cmd_sender2,
+        update_sender: None,
+        id: None,
+    };
+
+    let actuator2 = Actuator::new(&mut hardware_actuator2, &change_processor).unwrap();
+
+    let steering_id_leg2 = add_steering_to_model(
+        &mut model,
+        &suspension_id_leg2,
+        DriveModulePosition::RightFront,
+        actuator2,
+    )
+    .unwrap();
+
+    let (wheel_sender_2, wheel_receiver_2) = crossbeam_channel::unbounded();
+    let (wheel_cmd_sender_2, _) = crossbeam_channel::unbounded();
+    let mut wheel_hardware_actuator_2 = MockHardwareActuator {
+        receiver: wheel_receiver_2,
+        sender: wheel_sender_2,
+        command_sender: wheel_cmd_sender_2,
+        update_sender: None,
+        id: None,
+    };
+
+    let wheel_actuator_2 =
+        Actuator::new(&mut wheel_hardware_actuator_2, &change_processor).unwrap();
+
+    let wheel_id_leg2 =
+        add_wheel_to_model(&mut model, &steering_id_leg2, wheel_actuator_2).unwrap();
+
+    assert!(!model.is_ancestor(&wheel_id_leg1, &suspension_id_leg2));
+    assert!(!model.is_ancestor(&wheel_id_leg2, &suspension_id_leg1));
+
+    assert!(!model.is_ancestor(&body_id, &suspension_id_leg2));
+}
+
+#[test]
+fn when_testing_if_a_frame_is_an_ancestor_it_should_return_tryue_if_it_is() {
+    let mut model = MotionModel::new();
+    let body_id = add_body_to_model(&mut model).unwrap();
+
+    // Leg 1
+    let (sender, receiver) = crossbeam_channel::unbounded();
+    let (cmd_sender, _) = crossbeam_channel::unbounded();
+    let mut hardware_actuator = MockHardwareActuator {
+        receiver: receiver,
+        sender: sender.clone(),
+        command_sender: cmd_sender,
+        update_sender: None,
+        id: None,
+    };
+    let change_processor = Box::new(HardwareChangeProcessor::new(1000));
+
+    let actuator = Actuator::new(&mut hardware_actuator, &change_processor).unwrap();
+    let suspension_id_leg1 = add_actuated_joint_to_model(
+        &mut model,
+        &body_id,
+        DriveModulePosition::LeftFront,
+        FrameDofType::RevoluteZ,
+        actuator,
+    )
+    .unwrap();
+
+    let (sender1, receiver1) = crossbeam_channel::unbounded();
+    let (cmd_sender1, _) = crossbeam_channel::unbounded();
+    let mut hardware_actuator1 = MockHardwareActuator {
+        receiver: receiver1,
+        sender: sender1.clone(),
+        command_sender: cmd_sender1,
+        update_sender: None,
+        id: None,
+    };
+    let change_processor = Box::new(HardwareChangeProcessor::new(10));
+
+    let actuator1 = Actuator::new(&mut hardware_actuator1, &change_processor).unwrap();
+
+    let steering_id_leg1 = add_steering_to_model(
+        &mut model,
+        &suspension_id_leg1,
+        DriveModulePosition::LeftFront,
+        actuator1,
+    )
+    .unwrap();
+
+    let (wheel_sender1, wheel_receiver1) = crossbeam_channel::unbounded();
+    let (wheel_cmd_sender1, _) = crossbeam_channel::unbounded();
+    let mut wheel_hardware_actuator1 = MockHardwareActuator {
+        receiver: wheel_receiver1,
+        sender: wheel_sender1,
+        command_sender: wheel_cmd_sender1,
+        update_sender: None,
+        id: None,
+    };
+
+    let wheel_actuator1 = Actuator::new(&mut wheel_hardware_actuator1, &change_processor).unwrap();
+
+    let wheel_id_leg1 = add_wheel_to_model(&mut model, &steering_id_leg1, wheel_actuator1).unwrap();
+
+    // Leg 2
+    let suspension_id_leg2 =
+        add_suspension_to_model(&mut model, &body_id, DriveModulePosition::RightFront).unwrap();
+
+    let (sender2, receiver2) = crossbeam_channel::unbounded();
+    let (cmd_sender2, _) = crossbeam_channel::unbounded();
+    let mut hardware_actuator2 = MockHardwareActuator {
+        receiver: receiver2,
+        sender: sender2.clone(),
+        command_sender: cmd_sender2,
+        update_sender: None,
+        id: None,
+    };
+
+    let actuator2 = Actuator::new(&mut hardware_actuator2, &change_processor).unwrap();
+
+    let steering_id_leg2 = add_steering_to_model(
+        &mut model,
+        &suspension_id_leg2,
+        DriveModulePosition::RightFront,
+        actuator2,
+    )
+    .unwrap();
+
+    let (wheel_sender_2, wheel_receiver_2) = crossbeam_channel::unbounded();
+    let (wheel_cmd_sender_2, _) = crossbeam_channel::unbounded();
+    let mut wheel_hardware_actuator_2 = MockHardwareActuator {
+        receiver: wheel_receiver_2,
+        sender: wheel_sender_2,
+        command_sender: wheel_cmd_sender_2,
+        update_sender: None,
+        id: None,
+    };
+
+    let wheel_actuator_2 =
+        Actuator::new(&mut wheel_hardware_actuator_2, &change_processor).unwrap();
+
+    let wheel_id_leg2 =
+        add_wheel_to_model(&mut model, &steering_id_leg2, wheel_actuator_2).unwrap();
+
+    assert!(model.is_ancestor(&wheel_id_leg1, &suspension_id_leg1));
+    assert!(model.is_ancestor(&wheel_id_leg2, &suspension_id_leg2));
+
+    assert!(model.is_ancestor(&suspension_id_leg1, &body_id));
+    assert!(model.is_ancestor(&steering_id_leg1, &body_id));
+    assert!(model.is_ancestor(&wheel_id_leg1, &body_id));
+
+    assert!(model.is_ancestor(&suspension_id_leg2, &body_id));
+    assert!(model.is_ancestor(&steering_id_leg2, &body_id));
+    assert!(model.is_ancestor(&wheel_id_leg2, &body_id));
+}
+
+#[test]
+fn when_testing_if_a_frame_is_the_world_frame_it_should_return_false_if_it_is_not() {
+    let mut model = MotionModel::new();
+    let body_id = add_body_to_model(&mut model).unwrap();
+
+    assert!(!model.is_world(&body_id));
+}
+
+#[test]
+fn when_testing_if_a_frame_is_the_world_frame_it_should_return_true_if_it_is() {
+    let mut model = MotionModel::new();
+    let _ = add_body_to_model(&mut model).unwrap();
+
+    assert!(model.is_world(&FrameID::none()));
 }

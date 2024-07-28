@@ -286,6 +286,7 @@ impl JointSensor {
     }
 
     /// Returns the sensor value at the current time.
+    #[cfg_attr(test, mutants::skip)] // Cannot easily check mutations as this is a threaded lock situation
     pub fn get_value(&self) -> Result<JointState, Error> {
         let mut retries = 0;
         while retries < 3 {
@@ -436,6 +437,7 @@ impl Actuator {
     }
 
     /// Gets the current joint state for the actuator
+    #[cfg_attr(test, mutants::skip)] // Cannot easily check mutations as this is a threaded lock situation
     pub fn get_value(&self) -> Result<JointState, Error> {
         let mut retries = 0;
         while retries < 3 {

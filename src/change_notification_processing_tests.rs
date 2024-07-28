@@ -56,6 +56,12 @@ fn when_comparing_id_with_itself_should_be_equal() {
     assert_eq!(id, copy)
 }
 
+#[test]
+fn when_displaying_an_id_it_should_write_out_the_internal_id_number() {
+    let id = ChangeID::none();
+    assert_eq!(format!("{}", id), "ChangeID [0]");
+}
+
 // HardwareChangeProcessor
 
 #[test]
