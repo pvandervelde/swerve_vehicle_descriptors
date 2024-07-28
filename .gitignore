@@ -16,3 +16,4 @@ lcov.info
 
 # Ignore the output of 'cargo mutants'
 mutants.out/
+mutants.out.old/
