@@ -4,6 +4,8 @@ This directory contains the workflow scripts for the 'swerve_vehicle_descriptors
 
 - [ci](ci.yml): This workflow runs the unit tests and calculates unit test coverage for the package.
 - [docs](docs.yml): This workflow generates the documentation for the package.
+- [find_mutants_in_pr](find_mutants_in_pr.yml): This workflow runs the mutation testing tool [cargo mutants](https://mutants.rs/)
+  on the changes in the current pull request.
 - [lint_pr](lint_pr.yml): This workflow runs the linter on the current pull request and checks that the
   pull request title aligns with the [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/) format.
 - [lint](lint.yml): This workflow runs [rustfmt](https://github.com/rust-lang/rustfmt) and [clippy](https://doc.rust-lang.org/clippy/)
