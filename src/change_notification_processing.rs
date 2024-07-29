@@ -158,6 +158,7 @@ impl HardwareChangeProcessor {
     }
 
     /// Runs the task processing.
+    #[cfg_attr(test, mutants::skip)] // This cannot easily be unit tested in a way that mutations are easy to catch
     fn run(
         queue: &Arc<Mutex<HardwareChangeProcessorState>>,
         receiver: &Receiver<ChangeID>,

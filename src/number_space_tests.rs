@@ -152,8 +152,8 @@ fn test_linear_unbounded_space_smallest_distance_between_values() {
 // Periodic circular space
 
 #[test]
-fn test_periodic_bounded_circular_space_distance_between_values() {
-    let space = PeriodicBoundedCircularSpace::new_with_two_pi_range(0.0);
+fn test_periodic_bounded_circular_space_distance_between_values_minus_pi_to_pi() {
+    let space = PeriodicBoundedCircularSpace::new_with_two_pi_range(-PI);
 
     assert_eq!(
         space.distance_between_values(0.0, 0.0),
@@ -163,6 +163,11 @@ fn test_periodic_bounded_circular_space_distance_between_values() {
     assert_eq!(space.distance_between_values(PI, 0.0), vec![PI, -PI]);
     assert_eq!(space.distance_between_values(-PI, PI), vec![0.0, -2.0 * PI]);
     assert_eq!(space.distance_between_values(PI, -PI), vec![0.0, -2.0 * PI]);
+
+    assert_eq!(
+        space.distance_between_values(-0.5 * PI, PI),
+        vec![1.5 * PI, -0.5 * PI]
+    );
 
     assert_eq!(
         space.distance_between_values(0.0, 2.0 * PI),
@@ -219,7 +224,7 @@ fn test_periodic_bounded_circular_space_distance_between_values() {
 }
 
 #[test]
-fn test_periodic_bounded_circular_space_normalize_value() {
+fn test_periodic_bounded_circular_space_normalize_value_minus_pi_to_pi() {
     let space = PeriodicBoundedCircularSpace::new_with_two_pi_range(-PI);
 
     assert!(space.normalize_value(0.0).approx_eq(
@@ -305,7 +310,7 @@ fn test_periodic_bounded_circular_space_normalize_value() {
 }
 
 #[test]
-fn test_periodic_bounded_circular_space_smallest_distance_between_values() {
+fn test_periodic_bounded_circular_space_smallest_distance_between_values_minus_pi_to_pi() {
     let space = PeriodicBoundedCircularSpace::new_with_two_pi_range(-PI);
 
     assert!(space.smallest_distance_between_values(0.0, 0.0).approx_eq(

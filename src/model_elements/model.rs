@@ -509,7 +509,7 @@ impl MotionModel {
         spatial_inertia: Matrix6<f64>,
         actuator: Actuator,
     ) -> Result<FrameID, Error> {
-        if !parent_id.is_none() && !self.reference_frames.has_element(&parent_id) {
+        if !self.reference_frames.has_element(&parent_id) {
             return Err(Error::MissingFrameElement {
                 id: parent_id.clone(),
             });
@@ -690,7 +690,7 @@ impl MotionModel {
         moment_of_inertia: Matrix3<f64>,
         spatial_inertia: Matrix6<f64>,
     ) -> Result<FrameID, Error> {
-        if !parent_id.is_none() && !self.reference_frames.has_element(&parent_id) {
+        if !self.reference_frames.has_element(&parent_id) {
             return Err(Error::MissingFrameElement {
                 id: parent_id.clone(),
             });
@@ -764,7 +764,7 @@ impl MotionModel {
         spatial_inertia: Matrix6<f64>,
         actuator: Actuator,
     ) -> Result<FrameID, Error> {
-        if !parent_id.is_none() && !self.reference_frames.has_element(&parent_id) {
+        if !self.reference_frames.has_element(&parent_id) {
             return Err(Error::MissingFrameElement {
                 id: parent_id.clone(),
             });
@@ -849,7 +849,7 @@ impl MotionModel {
         spatial_inertia: Matrix6<f64>,
         joint_constraint: JointConstraint,
     ) -> Result<FrameID, Error> {
-        if !parent_id.is_none() && !self.reference_frames.has_element(&parent_id) {
+        if !self.reference_frames.has_element(&parent_id) {
             return Err(Error::MissingFrameElement {
                 id: parent_id.clone(),
             });
@@ -925,7 +925,7 @@ impl MotionModel {
         spatial_inertia: Matrix6<f64>,
         actuator: Actuator,
     ) -> Result<FrameID, Error> {
-        if !parent_id.is_none() && !self.reference_frames.has_element(&parent_id) {
+        if !self.reference_frames.has_element(&parent_id) {
             return Err(Error::MissingFrameElement {
                 id: parent_id.clone(),
             });
