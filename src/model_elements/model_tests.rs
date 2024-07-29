@@ -1054,6 +1054,37 @@ fn when_getting_the_wheels_with_no_frame_elements_it_should_error() {
     };
 }
 
+#[test]
+fn when_creating_physical_properties_it_should_store_the_values_correctly() {
+    #[rustfmt::skip]
+    let moment_of_inertia = Matrix3::new(
+        11.0, 12.0, 13.0,
+        21.0, 22.0, 23.0,
+        31.0, 32.0, 33.0);
+
+    #[rustfmt::skip]
+    let spatial_inertia = Matrix6::new(
+        11.0, 12.0, 13.0, 14.0, 15.0, 16.0,
+        21.0, 22.0, 23.0, 24.0, 25.0, 26.0,
+        31.0, 32.0, 33.0, 34.0, 35.0, 36.0,
+        41.0, 42.0, 43.0, 44.0, 45.0, 46.0,
+        51.0, 52.0, 53.0, 54.0, 55.0, 56.0,
+        61.0, 62.0, 63.0, 64.0, 65.0, 66.0);
+
+    let properties = ChassisElementPhysicalProperties::new(
+        10.0,
+        Vector3::new(2.0, 3.0, 4.0),
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
+    assert_eq!(10.0, properties.mass());
+
+    assert_eq!(2.0, properties.center_of_mass[0]);
+    assert_eq!(3.0, properties.center_of_mass[1]);
+    assert_eq!(4.0, properties.center_of_mass[2]);
+}
+
 // MotionModel
 
 // The following functions assume that they are creating a robot with the following layout:
