@@ -11,7 +11,7 @@ use swerve_vehicle_descriptors::{
     },
     model_elements::{
         frame_elements::{Actuator, FrameDofType, FrameID, JointConstraint},
-        model::MotionModel,
+        model::{ChassisElementPhysicalProperties, MotionModel},
     },
     number_space::NumberSpaceType,
     Error,
@@ -247,7 +247,7 @@ impl HardwareActuator for MockHardwareActuator {
     }
 }
 
-fn add_actuated_joint_to_model<'a>(
+fn add_actuated_joint_to_model(
     model: &mut MotionModel,
     parent_id: &FrameID,
     position: DriveModulePosition,
@@ -268,16 +268,20 @@ fn add_actuated_joint_to_model<'a>(
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     model.add_actuated_chassis_element(
         name,
         dof,
         *parent_id,
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         actuator,
     )
 }
@@ -291,14 +295,18 @@ fn add_body_to_model(model: &mut MotionModel) -> Result<FrameID, Error> {
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
-    model.add_body(
-        name,
-        position_relative_to_world,
-        orientation_relative_to_world,
+    let physical_properties = ChassisElementPhysicalProperties::new(
         mass,
         center_of_mass,
         moment_of_inertia,
         spatial_inertia,
+    );
+
+    model.add_body(
+        name,
+        position_relative_to_world,
+        orientation_relative_to_world,
+        physical_properties,
     )
 }
 
@@ -306,7 +314,7 @@ fn add_drive_module(
     model: &mut MotionModel,
     body_id: &FrameID,
     position: DriveModulePosition,
-    change_processor: &Box<HardwareChangeProcessor>,
+    change_processor: &HardwareChangeProcessor,
 ) {
     let actuator1 = create_actuator(change_processor);
     let extension_joint_id = add_actuated_joint_to_model(
@@ -330,7 +338,7 @@ fn add_drive_module(
     extend_angular_actuator(&actuator3.1);
 }
 
-fn add_steering_to_model<'a>(
+fn add_steering_to_model(
     model: &mut MotionModel,
     parent_id: &FrameID,
     position: DriveModulePosition,
@@ -350,15 +358,19 @@ fn add_steering_to_model<'a>(
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     model.add_steering_element(
         name,
         *parent_id,
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         actuator,
     )
 }
@@ -382,21 +394,25 @@ fn add_suspension_to_model(
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     model.add_suspension_element(
         name,
         FrameDofType::PrismaticZ,
         *parent_id,
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         JointConstraint::new(),
     )
 }
 
-fn add_wheel_to_model<'a>(
+fn add_wheel_to_model(
     model: &mut MotionModel,
     parent_id: &FrameID,
     actuator: Actuator,
@@ -413,22 +429,24 @@ fn add_wheel_to_model<'a>(
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     model.add_wheel(
         name,
         *parent_id,
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         actuator,
     )
 }
 
-fn create_actuator(
-    change_processor: &Box<HardwareChangeProcessor>,
-) -> (Actuator, MockHardwareActuator) {
+fn create_actuator(change_processor: &HardwareChangeProcessor) -> (Actuator, MockHardwareActuator) {
     let (sender, receiver) = crossbeam_channel::unbounded();
     let (cmd_sender, _cmd_receiver) = crossbeam_channel::unbounded();
     let mut hardware_actuator = MockHardwareActuator {

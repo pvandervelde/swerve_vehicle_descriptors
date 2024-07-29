@@ -416,6 +416,51 @@ impl KinematicTree {
     }
 }
 
+/// Stores the physical attributes for a [ChassisElement].
+pub struct ChassisElementPhysicalProperties {
+    mass: f64,
+    center_of_mass: Vector3<f64>,
+    moment_of_inertia: Matrix3<f64>,
+    spatial_inertia: Matrix6<f64>,
+}
+
+impl ChassisElementPhysicalProperties {
+    /// Returns the position of the center of mass for the element
+    pub fn center_of_mass(&self) -> Vector3<f64> {
+        self.center_of_mass
+    }
+
+    /// Returns the mass for the element
+    pub fn mass(&self) -> f64 {
+        self.mass
+    }
+
+    /// Returns the moment of intertia for the element
+    pub fn moment_of_inertia(&self) -> Matrix3<f64> {
+        self.moment_of_inertia
+    }
+
+    /// Creates a new instance of the [ChassisElementPhysicalProperties] struct
+    pub fn new(
+        mass: f64,
+        center_of_mass: Vector3<f64>,
+        moment_of_inertia: Matrix3<f64>,
+        spatial_inertia: Matrix6<f64>,
+    ) -> Self {
+        Self {
+            mass,
+            center_of_mass,
+            moment_of_inertia,
+            spatial_inertia,
+        }
+    }
+
+    /// Returns the spatial inertia for the element
+    pub fn spatial_inertia(&self) -> Matrix6<f64> {
+        self.spatial_inertia
+    }
+}
+
 /// A motion model for a swerve robot.
 ///
 /// It is assumed that the robot will have N wheels, where N > 2. Each wheel has
@@ -488,10 +533,7 @@ impl MotionModel {
         parent_id: FrameID,
         position_relative_to_parent: Translation3<f64>,
         orientation_relative_to_parent: UnitQuaternion<f64>,
-        mass: f64,
-        center_of_mass: Vector3<f64>,
-        moment_of_inertia: Matrix3<f64>,
-        spatial_inertia: Matrix6<f64>,
+        physical_properties: ChassisElementPhysicalProperties,
         actuator: Actuator,
     ) -> Result<FrameID, Error> {
         if !self.reference_frames.has_element(&parent_id) {
@@ -512,10 +554,7 @@ impl MotionModel {
             position_relative_to_parent,
             orientation_relative_to_parent,
             name,
-            mass,
-            center_of_mass,
-            moment_of_inertia,
-            spatial_inertia,
+            physical_properties,
         )
     }
 
@@ -550,10 +589,7 @@ impl MotionModel {
         name: String,
         position_relative_to_world: Translation3<f64>,
         orientation_relative_to_world: UnitQuaternion<f64>,
-        mass: f64,
-        center_of_mass: Vector3<f64>,
-        moment_of_inertia: Matrix3<f64>,
-        spatial_inertia: Matrix6<f64>,
+        physical_properties: ChassisElementPhysicalProperties,
     ) -> Result<FrameID, Error> {
         if !self.reference_frames.is_empty() {
             let body_id = match self.reference_frames.get_body_element() {
@@ -572,10 +608,7 @@ impl MotionModel {
             position_relative_to_world,
             orientation_relative_to_world,
             name,
-            mass,
-            center_of_mass,
-            moment_of_inertia,
-            spatial_inertia,
+            physical_properties,
         )
     }
 
@@ -608,10 +641,7 @@ impl MotionModel {
         position_relative_to_parent: Translation3<f64>,
         orientation_relative_to_parent: UnitQuaternion<f64>,
         name: String,
-        mass: f64,
-        center_of_mass: Vector3<f64>,
-        moment_of_inertia: Matrix3<f64>,
-        spatial_inertia: Matrix6<f64>,
+        physical_properties: ChassisElementPhysicalProperties,
     ) -> Result<FrameID, Error> {
         let id = self.reference_frames.add_element(
             reference_frame,
@@ -622,10 +652,10 @@ impl MotionModel {
 
         let element = ChassisElement::new(
             name,
-            mass,
-            center_of_mass,
-            moment_of_inertia,
-            spatial_inertia,
+            physical_properties.mass,
+            physical_properties.center_of_mass,
+            physical_properties.moment_of_inertia,
+            physical_properties.spatial_inertia,
             *id,
         );
         self.chassis_elements.insert(*id, element);
@@ -665,10 +695,7 @@ impl MotionModel {
         parent_id: FrameID,
         position_relative_to_parent: Translation3<f64>,
         orientation_relative_to_parent: UnitQuaternion<f64>,
-        mass: f64,
-        center_of_mass: Vector3<f64>,
-        moment_of_inertia: Matrix3<f64>,
-        spatial_inertia: Matrix6<f64>,
+        physical_properties: ChassisElementPhysicalProperties,
     ) -> Result<FrameID, Error> {
         if !self.reference_frames.has_element(&parent_id) {
             return Err(Error::MissingFrameElement { id: parent_id });
@@ -686,10 +713,7 @@ impl MotionModel {
             position_relative_to_parent,
             orientation_relative_to_parent,
             name,
-            mass,
-            center_of_mass,
-            moment_of_inertia,
-            spatial_inertia,
+            physical_properties,
         )
     }
 
@@ -734,10 +758,7 @@ impl MotionModel {
         parent_id: FrameID,
         position_relative_to_parent: Translation3<f64>,
         orientation_relative_to_parent: UnitQuaternion<f64>,
-        mass: f64,
-        center_of_mass: Vector3<f64>,
-        moment_of_inertia: Matrix3<f64>,
-        spatial_inertia: Matrix6<f64>,
+        physical_properties: ChassisElementPhysicalProperties,
         actuator: Actuator,
     ) -> Result<FrameID, Error> {
         if !self.reference_frames.has_element(&parent_id) {
@@ -771,10 +792,7 @@ impl MotionModel {
             position_relative_to_parent,
             orientation_relative_to_parent,
             name,
-            mass,
-            center_of_mass,
-            moment_of_inertia,
-            spatial_inertia,
+            physical_properties,
         )
     }
 
@@ -814,10 +832,7 @@ impl MotionModel {
         parent_id: FrameID,
         position_relative_to_parent: Translation3<f64>,
         orientation_relative_to_parent: UnitQuaternion<f64>,
-        mass: f64,
-        center_of_mass: Vector3<f64>,
-        moment_of_inertia: Matrix3<f64>,
-        spatial_inertia: Matrix6<f64>,
+        physical_properties: ChassisElementPhysicalProperties,
         joint_constraint: JointConstraint,
     ) -> Result<FrameID, Error> {
         if !self.reference_frames.has_element(&parent_id) {
@@ -839,10 +854,7 @@ impl MotionModel {
             position_relative_to_parent,
             orientation_relative_to_parent,
             name,
-            mass,
-            center_of_mass,
-            moment_of_inertia,
-            spatial_inertia,
+            physical_properties,
         )
     }
 
@@ -886,10 +898,7 @@ impl MotionModel {
         parent_id: FrameID,
         position_relative_to_parent: Translation3<f64>,
         orientation_relative_to_parent: UnitQuaternion<f64>,
-        mass: f64,
-        center_of_mass: Vector3<f64>,
-        moment_of_inertia: Matrix3<f64>,
-        spatial_inertia: Matrix6<f64>,
+        physical_properties: ChassisElementPhysicalProperties,
         actuator: Actuator,
     ) -> Result<FrameID, Error> {
         if !self.reference_frames.has_element(&parent_id) {
@@ -932,10 +941,7 @@ impl MotionModel {
             position_relative_to_parent,
             orientation_relative_to_parent,
             name,
-            mass,
-            center_of_mass,
-            moment_of_inertia,
-            spatial_inertia,
+            physical_properties,
         )
     }
 

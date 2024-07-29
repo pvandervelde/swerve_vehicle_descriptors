@@ -288,8 +288,8 @@ pub struct JointSensor {
 
 impl JointSensor {
     /// Returns the number space for the sensor
-    pub fn get_numberspace(&self) -> &Box<dyn RealNumberValueSpace> {
-        &self.number_space
+    pub fn get_numberspace(&self) -> &dyn RealNumberValueSpace {
+        self.number_space.as_ref()
     }
 
     /// Returns the sensor value at the current time.
@@ -324,7 +324,7 @@ impl JointSensor {
     /// * 'change_processor' - The change processor that will process updates from the hardware sensor
     pub fn new(
         sensor: &mut impl HardwareSensor,
-        change_processor: &Box<HardwareChangeProcessor>,
+        change_processor: &HardwareChangeProcessor,
     ) -> Result<Self, Error> {
         // Initially set the current state and the rates of change to be zero. These values will be overwritten
         // as soon as we get our first set of data from the actual actuator.
@@ -439,8 +439,8 @@ pub struct Actuator {
 
 impl Actuator {
     /// Returns the number space for the actuator
-    pub fn get_numberspace(&self) -> &Box<dyn RealNumberValueSpace> {
-        &self.number_space
+    pub fn get_numberspace(&self) -> &dyn RealNumberValueSpace {
+        self.number_space.as_ref()
     }
 
     /// Gets the current joint state for the actuator
@@ -475,7 +475,7 @@ impl Actuator {
     /// * 'change_processor' - The change processor that will process updates from the hardware actuator
     pub fn new(
         actuator: &mut impl HardwareActuator,
-        change_processor: &Box<HardwareChangeProcessor>,
+        change_processor: &HardwareChangeProcessor,
     ) -> Result<Self, Error> {
         // Initially set the current state and the rates of change to be zero. These values will be overwritten
         // as soon as we get our first set of data from the actual actuator.

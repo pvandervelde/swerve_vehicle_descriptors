@@ -17,7 +17,7 @@ use crate::{
     Error,
 };
 
-use super::{KinematicTree, MotionModel};
+use super::{ChassisElementPhysicalProperties, KinematicTree, MotionModel};
 
 fn create_generic_non_actuated_element(name: String) -> ReferenceFrame {
     let degree_of_freedom_kind = FrameDofType::PrismaticX;
@@ -421,12 +421,7 @@ fn when_adding_an_element_with_an_unknown_parent_to_a_kinematic_tree_it_should_e
             Translation3::<f64>::identity(),
             UnitQuaternion::identity(),
         ) {
-            Err(e) => assert_eq!(
-                e,
-                Error::MissingFrameElement {
-                    id: second_id,
-                }
-            ),
+            Err(e) => assert_eq!(e, Error::MissingFrameElement { id: second_id }),
             Ok(_) => assert!(
                 false,
                 "was able to add an element with a non-existant parent."
@@ -1148,7 +1143,7 @@ impl HardwareActuator for MockHardwareActuator {
     }
 }
 
-fn add_actuated_joint_to_model<'a>(
+fn add_actuated_joint_to_model(
     model: &mut MotionModel,
     parent_id: &FrameID,
     position: DriveModulePosition,
@@ -1169,16 +1164,20 @@ fn add_actuated_joint_to_model<'a>(
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     model.add_actuated_chassis_element(
         name,
         dof,
         *parent_id,
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         actuator,
     )
 }
@@ -1192,18 +1191,22 @@ fn add_body_to_model(model: &mut MotionModel) -> Result<FrameID, Error> {
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
-    model.add_body(
-        name,
-        position_relative_to_world,
-        orientation_relative_to_world,
+    let physical_properties = ChassisElementPhysicalProperties::new(
         mass,
         center_of_mass,
         moment_of_inertia,
         spatial_inertia,
+    );
+
+    model.add_body(
+        name,
+        position_relative_to_world,
+        orientation_relative_to_world,
+        physical_properties,
     )
 }
 
-fn add_steering_to_model<'a>(
+fn add_steering_to_model(
     model: &mut MotionModel,
     parent_id: &FrameID,
     position: DriveModulePosition,
@@ -1223,15 +1226,19 @@ fn add_steering_to_model<'a>(
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     model.add_steering_element(
         name,
         *parent_id,
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         actuator,
     )
 }
@@ -1255,21 +1262,25 @@ fn add_suspension_to_model(
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     model.add_suspension_element(
         name,
         FrameDofType::PrismaticZ,
         *parent_id,
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         JointConstraint::new(),
     )
 }
 
-fn add_wheel_to_model<'a>(
+fn add_wheel_to_model(
     model: &mut MotionModel,
     parent_id: &FrameID,
     actuator: Actuator,
@@ -1286,15 +1297,19 @@ fn add_wheel_to_model<'a>(
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     model.add_wheel(
         name,
         *parent_id,
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         actuator,
     )
 }
@@ -1311,6 +1326,13 @@ fn when_adding_actuated_chassis_element_it_should_store_the_element() {
     let center_of_mass = Vector3::<f64>::identity();
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
+
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
 
     let (sender, receiver) = crossbeam_channel::unbounded();
     let (cmd_sender, _cmd_receiver) = crossbeam_channel::unbounded();
@@ -1331,10 +1353,7 @@ fn when_adding_actuated_chassis_element_it_should_store_the_element() {
         body_id,
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         actuator,
     );
 
@@ -1380,6 +1399,13 @@ fn when_adding_actuated_chassis_element_with_invalid_parent_it_should_error() {
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     let (sender, receiver) = crossbeam_channel::unbounded();
     let (cmd_sender, _cmd_receiver) = crossbeam_channel::unbounded();
     let mut hardware_actuator = MockHardwareActuator {
@@ -1399,10 +1425,7 @@ fn when_adding_actuated_chassis_element_with_invalid_parent_it_should_error() {
         FrameID::new(),
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         actuator,
     );
 
@@ -1421,6 +1444,13 @@ fn when_adding_actuated_chassis_element_with_none_parent_it_should_error() {
     let center_of_mass = Vector3::<f64>::identity();
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
+
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
 
     let (sender, receiver) = crossbeam_channel::unbounded();
     let (cmd_sender, _cmd_receiver) = crossbeam_channel::unbounded();
@@ -1441,10 +1471,7 @@ fn when_adding_actuated_chassis_element_with_none_parent_it_should_error() {
         FrameID::none(),
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         actuator,
     );
 
@@ -1499,6 +1526,13 @@ fn when_adding_actuated_chassis_element_with_parent_wheel_it_should_error() {
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     let (sender, receiver) = crossbeam_channel::unbounded();
     let (cmd_sender, _cmd_receiver) = crossbeam_channel::unbounded();
     let mut hardware_actuator = MockHardwareActuator {
@@ -1518,10 +1552,7 @@ fn when_adding_actuated_chassis_element_with_parent_wheel_it_should_error() {
         wheel_id,
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         actuator,
     );
 
@@ -1538,15 +1569,19 @@ fn when_adding_body_it_should_store_the_element() {
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     let mut model = MotionModel::new();
     let result = model.add_body(
         name.clone(),
         position_relative_to_world,
         orientation_relative_to_world,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
     );
 
     assert!(result.is_ok());
@@ -1605,15 +1640,19 @@ fn when_adding_static_chassis_element_it_should_store_the_element() {
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     let result = model.add_static_chassis_element(
         name.clone(),
         body_id,
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
     );
 
     assert!(result.is_ok());
@@ -1655,15 +1694,19 @@ fn when_adding_static_chassis_element_with_invalid_parent_it_should_error() {
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     let result = model.add_static_chassis_element(
         name.clone(),
         FrameID::new(),
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
     );
 
     assert!(result.is_err());
@@ -1682,15 +1725,19 @@ fn when_adding_static_chassis_element_with_none_parent_it_should_error() {
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     let result = model.add_static_chassis_element(
         name.clone(),
         FrameID::none(),
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
     );
 
     assert!(result.is_err());
@@ -1745,15 +1792,19 @@ fn when_adding_static_chassis_element_with_parent_wheel_it_should_error() {
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     let result = model.add_static_chassis_element(
         name.clone(),
         wheel_id,
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
     );
 
     assert!(result.is_err());
@@ -1771,6 +1822,13 @@ fn when_adding_steering_element_it_should_store_the_element() {
     let center_of_mass = Vector3::<f64>::identity();
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
+
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
 
     let (sender, receiver) = crossbeam_channel::unbounded();
     let (cmd_sender, _cmd_receiver) = crossbeam_channel::unbounded();
@@ -1790,10 +1848,7 @@ fn when_adding_steering_element_it_should_store_the_element() {
         body_id,
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         actuator,
     );
 
@@ -1836,6 +1891,13 @@ fn when_adding_steering_element_with_invalid_parent_it_should_error() {
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     let (sender, receiver) = crossbeam_channel::unbounded();
     let (cmd_sender, _cmd_receiver) = crossbeam_channel::unbounded();
     let mut hardware_actuator = MockHardwareActuator {
@@ -1854,10 +1916,7 @@ fn when_adding_steering_element_with_invalid_parent_it_should_error() {
         FrameID::new(),
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         actuator,
     );
 
@@ -1877,6 +1936,13 @@ fn when_adding_steering_element_with_none_parent_it_should_error() {
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     let (sender, receiver) = crossbeam_channel::unbounded();
     let (cmd_sender, _cmd_receiver) = crossbeam_channel::unbounded();
     let mut hardware_actuator = MockHardwareActuator {
@@ -1895,10 +1961,7 @@ fn when_adding_steering_element_with_none_parent_it_should_error() {
         FrameID::none(),
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         actuator,
     );
 
@@ -1940,6 +2003,13 @@ fn when_adding_steering_element_with_multiple_steering_elements_in_chain_it_shou
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     let (sender2, receiver2) = crossbeam_channel::unbounded();
     let (cmd_sender2, _) = crossbeam_channel::unbounded();
     let mut hardware_actuator2 = MockHardwareActuator {
@@ -1957,10 +2027,7 @@ fn when_adding_steering_element_with_multiple_steering_elements_in_chain_it_shou
         steering_id,
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         actuator2,
     );
 
@@ -2015,6 +2082,13 @@ fn when_adding_steering_element_with_parent_wheel_it_should_error() {
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     let (sender, receiver) = crossbeam_channel::unbounded();
     let (cmd_sender, _cmd_receiver) = crossbeam_channel::unbounded();
     let mut hardware_actuator = MockHardwareActuator {
@@ -2033,10 +2107,7 @@ fn when_adding_steering_element_with_parent_wheel_it_should_error() {
         wheel_id,
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         actuator,
     );
 
@@ -2056,6 +2127,13 @@ fn when_adding_suspension_element_it_should_store_the_element() {
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     let joint_constraint = JointConstraint::new();
 
     let result = model.add_suspension_element(
@@ -2064,10 +2142,7 @@ fn when_adding_suspension_element_it_should_store_the_element() {
         body_id,
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         joint_constraint,
     );
 
@@ -2112,6 +2187,13 @@ fn when_adding_suspension_elements_multiple_times_it_should_store_the_elements()
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     // Joint 1
     let joint_constraint = JointConstraint::new();
 
@@ -2121,16 +2203,20 @@ fn when_adding_suspension_elements_multiple_times_it_should_store_the_elements()
         body_id,
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         joint_constraint,
     );
 
     assert!(result1.is_ok());
 
     // Joint 2
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     let joint_constraint = JointConstraint::new();
 
     let result2 = model.add_suspension_element(
@@ -2139,10 +2225,7 @@ fn when_adding_suspension_elements_multiple_times_it_should_store_the_elements()
         body_id,
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         joint_constraint,
     );
 
@@ -2215,6 +2298,13 @@ fn when_adding_suspension_element_with_invalid_parent_it_should_error() {
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     let joint_constraint = JointConstraint::new();
 
     let result = model.add_suspension_element(
@@ -2223,10 +2313,7 @@ fn when_adding_suspension_element_with_invalid_parent_it_should_error() {
         FrameID::new(),
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         joint_constraint,
     );
 
@@ -2246,6 +2333,13 @@ fn when_adding_suspension_element_with_none_parent_it_should_error() {
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     let joint_constraint = JointConstraint::new();
 
     let result = model.add_suspension_element(
@@ -2254,10 +2348,7 @@ fn when_adding_suspension_element_with_none_parent_it_should_error() {
         FrameID::none(),
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         joint_constraint,
     );
 
@@ -2312,6 +2403,13 @@ fn when_adding_suspension_element_with_wheel_parent_it_should_error() {
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     let joint_constraint = JointConstraint::new();
 
     let result = model.add_suspension_element(
@@ -2320,10 +2418,7 @@ fn when_adding_suspension_element_with_wheel_parent_it_should_error() {
         wheel_id,
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         joint_constraint,
     );
 
@@ -2365,6 +2460,13 @@ fn when_adding_wheel_element_it_should_store_the_element() {
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     let (sender2, receiver2) = crossbeam_channel::unbounded();
     let (cmd_sender2, _) = crossbeam_channel::unbounded();
     let mut hardware_actuator2 = MockHardwareActuator {
@@ -2382,10 +2484,7 @@ fn when_adding_wheel_element_it_should_store_the_element() {
         steering_id,
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         actuator2,
     );
 
@@ -2463,6 +2562,13 @@ fn when_adding_wheel_element_with_invalid_parent_it_should_error() {
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     let (sender2, receiver2) = crossbeam_channel::unbounded();
     let (cmd_sender2, _) = crossbeam_channel::unbounded();
     let mut hardware_actuator2 = MockHardwareActuator {
@@ -2480,10 +2586,7 @@ fn when_adding_wheel_element_with_invalid_parent_it_should_error() {
         FrameID::new(),
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         actuator2,
     );
 
@@ -2525,6 +2628,13 @@ fn when_adding_wheel_element_with_none_parent_it_should_error() {
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     let (sender2, receiver2) = crossbeam_channel::unbounded();
     let (cmd_sender2, _) = crossbeam_channel::unbounded();
     let mut hardware_actuator2 = MockHardwareActuator {
@@ -2542,10 +2652,7 @@ fn when_adding_wheel_element_with_none_parent_it_should_error() {
         FrameID::none(),
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         actuator2,
     );
 
@@ -2600,6 +2707,13 @@ fn when_adding_wheel_element_with_wheel_parent_it_should_error() {
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     let (sender2, receiver2) = crossbeam_channel::unbounded();
     let (cmd_sender2, _) = crossbeam_channel::unbounded();
     let mut hardware_actuator2 = MockHardwareActuator {
@@ -2617,10 +2731,7 @@ fn when_adding_wheel_element_with_wheel_parent_it_should_error() {
         wheel_id,
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         actuator2,
     );
 
@@ -2640,6 +2751,13 @@ fn when_adding_wheel_element_without_steering_parent_it_should_error() {
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     let (sender, receiver) = crossbeam_channel::unbounded();
     let (cmd_sender, _cmd_receiver) = crossbeam_channel::unbounded();
     let mut hardware_actuator = MockHardwareActuator {
@@ -2658,10 +2776,7 @@ fn when_adding_wheel_element_without_steering_parent_it_should_error() {
         body_id,
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         actuator,
     );
 
