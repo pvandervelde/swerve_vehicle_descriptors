@@ -2090,11 +2090,116 @@ fn when_adding_suspension_element_it_should_store_the_element() {
     assert!(!frame.is_actuated());
     assert!(!model.is_actuated(&frame_id));
 
+    assert_eq!(1, model.number_of_joint_constraints());
+
     let chassis_result = model.get_chassis_element(&frame_id);
     assert!(chassis_result.is_ok());
 
     let chassis = chassis_result.unwrap();
     assert_eq!(name, chassis.name());
+}
+
+#[test]
+fn when_adding_suspension_elements_multiple_times_it_should_store_the_elements() {
+    let mut model = MotionModel::new();
+    let body_id = add_body_to_model(&mut model).unwrap();
+
+    let name = "a".to_string();
+    let position_relative_to_parent = Translation3::<f64>::identity();
+    let orientation_relative_to_parent = UnitQuaternion::<f64>::identity();
+    let mass = 1.0;
+    let center_of_mass = Vector3::<f64>::identity();
+    let moment_of_inertia = Matrix3::<f64>::identity();
+    let spatial_inertia = Matrix6::<f64>::identity();
+
+    // Joint 1
+    let joint_constraint = JointConstraint::new();
+
+    let result1 = model.add_suspension_element(
+        name.clone(),
+        FrameDofType::PrismaticX,
+        body_id.clone(),
+        position_relative_to_parent,
+        orientation_relative_to_parent,
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+        joint_constraint,
+    );
+
+    assert!(result1.is_ok());
+
+    // Joint 2
+    let joint_constraint = JointConstraint::new();
+
+    let result2 = model.add_suspension_element(
+        name.clone(),
+        FrameDofType::PrismaticX,
+        body_id.clone(),
+        position_relative_to_parent,
+        orientation_relative_to_parent,
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+        joint_constraint,
+    );
+
+    assert!(result2.is_ok());
+
+    // Check frame element 1
+
+    let frame_id1 = result1.unwrap();
+    assert!(!frame_id1.is_none());
+
+    let degree_of_freedom_result1 = model.get_frame_degree_of_freedom(&frame_id1);
+    assert!(degree_of_freedom_result1.is_ok());
+
+    let dof1 = degree_of_freedom_result1.unwrap();
+    assert_eq!(FrameDofType::PrismaticX, dof1);
+
+    let frame_result1 = model.get_reference_frame(&frame_id1);
+    assert!(frame_result1.is_ok());
+
+    let frame1 = frame_result1.unwrap();
+    assert_eq!(dof1, frame1.degree_of_freedom_kind());
+    assert!(!frame1.is_actuated());
+    assert!(!model.is_actuated(&frame_id1));
+
+    let chassis_result1 = model.get_chassis_element(&frame_id1);
+    assert!(chassis_result1.is_ok());
+
+    let chassis1 = chassis_result1.unwrap();
+    assert_eq!(name, chassis1.name());
+
+    // Check frame element 2
+
+    let frame_id2 = result2.unwrap();
+    assert!(!frame_id2.is_none());
+
+    let degree_of_freedom_result2 = model.get_frame_degree_of_freedom(&frame_id2);
+    assert!(degree_of_freedom_result2.is_ok());
+
+    let dof2 = degree_of_freedom_result2.unwrap();
+    assert_eq!(FrameDofType::PrismaticX, dof2);
+
+    let frame_result2 = model.get_reference_frame(&frame_id2);
+    assert!(frame_result2.is_ok());
+
+    let frame2 = frame_result2.unwrap();
+    assert_eq!(dof2, frame2.degree_of_freedom_kind());
+    assert!(!frame2.is_actuated());
+    assert!(!model.is_actuated(&frame_id2));
+
+    let chassis_result2 = model.get_chassis_element(&frame_id2);
+    assert!(chassis_result2.is_ok());
+
+    let chassis2 = chassis_result2.unwrap();
+    assert_eq!(name, chassis2.name());
+
+    // Check the number of joint constraints
+    assert_eq!(2, model.number_of_joint_constraints());
 }
 
 #[test]
@@ -5056,45 +5161,6 @@ fn when_getting_active_suspension_with_more_actuators_than_wheels_it_should_retu
     let wheel_actuator1 = Actuator::new(&mut wheel_hardware_actuator1, &change_processor).unwrap();
 
     let _ = add_wheel_to_model(&mut model, &steering_id_leg1, wheel_actuator1).unwrap();
-
-    // Leg 2
-    let suspension_id_leg2 =
-        add_suspension_to_model(&mut model, &body_id, DriveModulePosition::RightFront).unwrap();
-
-    let (sender2, receiver2) = crossbeam_channel::unbounded();
-    let (cmd_sender2, _) = crossbeam_channel::unbounded();
-    let mut hardware_actuator2 = MockHardwareActuator {
-        receiver: receiver2,
-        sender: sender2.clone(),
-        command_sender: cmd_sender2,
-        update_sender: None,
-        id: None,
-    };
-
-    let actuator2 = Actuator::new(&mut hardware_actuator2, &change_processor).unwrap();
-
-    let steering_id_leg2 = add_steering_to_model(
-        &mut model,
-        &suspension_id_leg2,
-        DriveModulePosition::RightFront,
-        actuator2,
-    )
-    .unwrap();
-
-    let (wheel_sender_2, wheel_receiver_2) = crossbeam_channel::unbounded();
-    let (wheel_cmd_sender_2, _) = crossbeam_channel::unbounded();
-    let mut wheel_hardware_actuator_2 = MockHardwareActuator {
-        receiver: wheel_receiver_2,
-        sender: wheel_sender_2,
-        command_sender: wheel_cmd_sender_2,
-        update_sender: None,
-        id: None,
-    };
-
-    let wheel_actuator_2 =
-        Actuator::new(&mut wheel_hardware_actuator_2, &change_processor).unwrap();
-
-    let _ = add_wheel_to_model(&mut model, &steering_id_leg2, wheel_actuator_2).unwrap();
 
     assert!(model.has_active_suspension());
 }
