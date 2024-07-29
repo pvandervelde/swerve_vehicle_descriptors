@@ -17,7 +17,7 @@ use crate::{
     Error,
 };
 
-use super::{KinematicTree, MotionModel};
+use super::{ChassisElementPhysicalProperties, KinematicTree, MotionModel};
 
 fn create_generic_non_actuated_element(name: String) -> ReferenceFrame {
     let degree_of_freedom_kind = FrameDofType::PrismaticX;
@@ -41,7 +41,7 @@ fn when_adding_an_single_element_with_no_parent_to_a_kinematic_tree_it_should_be
 
     let name = "a".to_string();
     let element = create_generic_non_actuated_element(name.clone());
-    let element_id = element.id().clone();
+    let element_id = *element.id();
 
     // Get the mutable tree to add something
     {
@@ -59,7 +59,7 @@ fn when_adding_an_single_element_with_no_parent_to_a_kinematic_tree_it_should_be
                 );
             }
             Ok(id) => {
-                assert_eq!(id.as_ref(), &element_id);
+                assert_eq!(id, &element_id);
             }
         };
     }
@@ -78,11 +78,11 @@ fn when_adding_an_multiple_elements_to_a_kinematic_tree_it_should_only_have_one_
 
     let first_name = "a".to_string();
     let first_element = create_generic_non_actuated_element(first_name);
-    let first_id = first_element.id().clone();
+    let first_id = *first_element.id();
 
     let second_name = "b".to_string();
     let second_element = create_generic_non_actuated_element(second_name);
-    let second_id = second_element.id().clone();
+    let second_id = *second_element.id();
 
     // Get the mutable tree to add something
     {
@@ -100,13 +100,13 @@ fn when_adding_an_multiple_elements_to_a_kinematic_tree_it_should_only_have_one_
                 );
             }
             Ok(id) => {
-                assert_eq!(id.as_ref(), &first_id);
+                assert_eq!(id, &first_id);
             }
         };
 
         match tree.add_element(
             second_element,
-            first_id.clone(),
+            first_id,
             Translation3::<f64>::identity(),
             UnitQuaternion::identity(),
         ) {
@@ -118,7 +118,7 @@ fn when_adding_an_multiple_elements_to_a_kinematic_tree_it_should_only_have_one_
                 );
             }
             Ok(id) => {
-                assert_eq!(id.as_ref(), &second_id);
+                assert_eq!(id, &second_id);
             }
         };
     }
@@ -137,7 +137,7 @@ fn when_adding_multiple_elements_without_parents_to_a_kinematic_tree_it_should_e
 
     let first_name = "a".to_string();
     let first_element = create_generic_non_actuated_element(first_name);
-    let first_id = first_element.id().clone();
+    let first_id = *first_element.id();
 
     let second_name = "b".to_string();
     let second_element = create_generic_non_actuated_element(second_name);
@@ -158,7 +158,7 @@ fn when_adding_multiple_elements_without_parents_to_a_kinematic_tree_it_should_e
                 );
             }
             Ok(id) => {
-                assert_eq!(id.as_ref(), &first_id);
+                assert_eq!(id, &first_id);
             }
         };
 
@@ -179,15 +179,15 @@ fn when_adding_an_element_to_a_kinematic_tree_it_should_only_be_a_wheel_in_a_spe
 
     let first_name = "a".to_string();
     let first_element = create_generic_non_actuated_element(first_name);
-    let first_id = first_element.id().clone();
+    let first_id = *first_element.id();
 
     let second_name = "b".to_string();
     let second_element = create_generic_non_actuated_element(second_name);
-    let second_id = second_element.id().clone();
+    let second_id = *second_element.id();
 
     let third_name = "c".to_string();
     let third_element = create_wheel_element(third_name);
-    let third_id = third_element.id().clone();
+    let third_id = *third_element.id();
 
     // Get the mutable tree to add something
     {
@@ -205,13 +205,13 @@ fn when_adding_an_element_to_a_kinematic_tree_it_should_only_be_a_wheel_in_a_spe
                 );
             }
             Ok(id) => {
-                assert_eq!(id.as_ref(), &first_id);
+                assert_eq!(id, &first_id);
             }
         };
 
         match tree.add_element(
             second_element,
-            first_id.clone(),
+            first_id,
             Translation3::<f64>::identity(),
             UnitQuaternion::identity(),
         ) {
@@ -223,13 +223,13 @@ fn when_adding_an_element_to_a_kinematic_tree_it_should_only_be_a_wheel_in_a_spe
                 );
             }
             Ok(id) => {
-                assert_eq!(id.as_ref(), &second_id);
+                assert_eq!(id, &second_id);
             }
         };
 
         match tree.add_element(
             third_element,
-            first_id.clone(),
+            first_id,
             Translation3::<f64>::identity(),
             UnitQuaternion::identity(),
         ) {
@@ -241,7 +241,7 @@ fn when_adding_an_element_to_a_kinematic_tree_it_should_only_be_a_wheel_in_a_spe
                 );
             }
             Ok(id) => {
-                assert_eq!(id.as_ref(), &third_id);
+                assert_eq!(id, &third_id);
             }
         };
     }
@@ -268,7 +268,7 @@ fn when_adding_an_element_to_a_kinematic_tree_referencing_itself_it_should_error
 
     let first_name = "a".to_string();
     let first_element = create_generic_non_actuated_element(first_name);
-    let first_id = first_element.id().clone();
+    let first_id = *first_element.id();
 
     // Get the mutable tree to add something
     {
@@ -289,15 +289,15 @@ fn when_adding_a_child_to_an_element_in_a_kinematic_tree_it_should_not_be_a_whee
 
     let first_name = "a".to_string();
     let first_element = create_generic_non_actuated_element(first_name);
-    let first_id = first_element.id().clone();
+    let first_id = *first_element.id();
 
     let second_name = "b".to_string();
     let second_element = create_wheel_element(second_name);
-    let second_id = second_element.id().clone();
+    let second_id = *second_element.id();
 
     let third_name = "c".to_string();
     let third_element = create_wheel_element(third_name);
-    let third_id = third_element.id().clone();
+    let third_id = *third_element.id();
 
     // Get the mutable tree to add something
     {
@@ -315,13 +315,13 @@ fn when_adding_a_child_to_an_element_in_a_kinematic_tree_it_should_not_be_a_whee
                 );
             }
             Ok(id) => {
-                assert_eq!(id.as_ref(), &first_id);
+                assert_eq!(id, &first_id);
             }
         };
 
         match tree.add_element(
             second_element,
-            first_id.clone(),
+            first_id,
             Translation3::<f64>::identity(),
             UnitQuaternion::identity(),
         ) {
@@ -333,7 +333,7 @@ fn when_adding_a_child_to_an_element_in_a_kinematic_tree_it_should_not_be_a_whee
                 );
             }
             Ok(id) => {
-                assert_eq!(id.as_ref(), &second_id);
+                assert_eq!(id, &second_id);
             }
         };
 
@@ -350,7 +350,7 @@ fn when_adding_a_child_to_an_element_in_a_kinematic_tree_it_should_not_be_a_whee
 
         match tree.add_element(
             third_element,
-            second_id.clone(),
+            second_id,
             Translation3::<f64>::identity(),
             UnitQuaternion::identity(),
         ) {
@@ -362,7 +362,7 @@ fn when_adding_a_child_to_an_element_in_a_kinematic_tree_it_should_not_be_a_whee
                 );
             }
             Ok(id) => {
-                assert_eq!(id.as_ref(), &third_id);
+                assert_eq!(id, &third_id);
             }
         };
 
@@ -386,11 +386,11 @@ fn when_adding_an_element_with_an_unknown_parent_to_a_kinematic_tree_it_should_e
 
     let first_name = "a".to_string();
     let first_element = create_generic_non_actuated_element(first_name);
-    let first_id = first_element.id().clone();
+    let first_id = *first_element.id();
 
     let second_name = "b".to_string();
     let second_element = create_wheel_element(second_name);
-    let second_id = second_element.id().clone();
+    let second_id = *second_element.id();
 
     let third_name = "c".to_string();
     let third_element = create_wheel_element(third_name);
@@ -411,22 +411,17 @@ fn when_adding_an_element_with_an_unknown_parent_to_a_kinematic_tree_it_should_e
                 );
             }
             Ok(id) => {
-                assert_eq!(id.as_ref(), &first_id);
+                assert_eq!(id, &first_id);
             }
         };
 
         match tree.add_element(
             third_element,
-            second_id.clone(),
+            second_id,
             Translation3::<f64>::identity(),
             UnitQuaternion::identity(),
         ) {
-            Err(e) => assert_eq!(
-                e,
-                Error::MissingFrameElement {
-                    id: second_id.clone(),
-                }
-            ),
+            Err(e) => assert_eq!(e, Error::MissingFrameElement { id: second_id }),
             Ok(_) => assert!(
                 false,
                 "was able to add an element with a non-existant parent."
@@ -441,23 +436,23 @@ fn when_adding_leaf_elements_to_a_kinematic_tree_it_should_be_multiple_wheels() 
 
     let body_name = "body".to_string();
     let body_element = create_generic_non_actuated_element(body_name);
-    let body_id = body_element.id().clone();
+    let body_id = *body_element.id();
 
     let first_wheel_name = "wheel_1".to_string();
     let first_wheel_element = create_wheel_element(first_wheel_name);
-    let first_wheel_id = first_wheel_element.id().clone();
+    let first_wheel_id = *first_wheel_element.id();
 
     let second_wheel_name = "wheel_2".to_string();
     let second_wheel_element = create_wheel_element(second_wheel_name);
-    let second_wheel_id = second_wheel_element.id().clone();
+    let second_wheel_id = *second_wheel_element.id();
 
     let third_wheel_name = "wheel_3".to_string();
     let third_wheel_element = create_wheel_element(third_wheel_name);
-    let third_wheel_id = third_wheel_element.id().clone();
+    let third_wheel_id = *third_wheel_element.id();
 
     let fourth_wheel_name = "wheel_4".to_string();
     let fourth_wheel_element = create_wheel_element(fourth_wheel_name);
-    let fourth_wheel_id = fourth_wheel_element.id().clone();
+    let fourth_wheel_id = *fourth_wheel_element.id();
 
     // Get the mutable tree to add something
     {
@@ -475,13 +470,13 @@ fn when_adding_leaf_elements_to_a_kinematic_tree_it_should_be_multiple_wheels() 
                 );
             }
             Ok(id) => {
-                assert_eq!(id.as_ref(), &body_id);
+                assert_eq!(id, &body_id);
             }
         };
 
         match tree.add_element(
             first_wheel_element,
-            body_id.clone(),
+            body_id,
             Translation3::<f64>::identity(),
             UnitQuaternion::identity(),
         ) {
@@ -493,13 +488,13 @@ fn when_adding_leaf_elements_to_a_kinematic_tree_it_should_be_multiple_wheels() 
                 );
             }
             Ok(id) => {
-                assert_eq!(id.as_ref(), &first_wheel_id);
+                assert_eq!(id, &first_wheel_id);
             }
         };
 
         match tree.add_element(
             second_wheel_element,
-            body_id.clone(),
+            body_id,
             Translation3::<f64>::identity(),
             UnitQuaternion::identity(),
         ) {
@@ -511,13 +506,13 @@ fn when_adding_leaf_elements_to_a_kinematic_tree_it_should_be_multiple_wheels() 
                 );
             }
             Ok(id) => {
-                assert_eq!(id.as_ref(), &second_wheel_id);
+                assert_eq!(id, &second_wheel_id);
             }
         };
 
         match tree.add_element(
             third_wheel_element,
-            body_id.clone(),
+            body_id,
             Translation3::<f64>::identity(),
             UnitQuaternion::identity(),
         ) {
@@ -529,13 +524,13 @@ fn when_adding_leaf_elements_to_a_kinematic_tree_it_should_be_multiple_wheels() 
                 );
             }
             Ok(id) => {
-                assert_eq!(id.as_ref(), &third_wheel_id);
+                assert_eq!(id, &third_wheel_id);
             }
         };
 
         match tree.add_element(
             fourth_wheel_element,
-            body_id.clone(),
+            body_id,
             Translation3::<f64>::identity(),
             UnitQuaternion::identity(),
         ) {
@@ -547,7 +542,7 @@ fn when_adding_leaf_elements_to_a_kinematic_tree_it_should_be_multiple_wheels() 
                 );
             }
             Ok(id) => {
-                assert_eq!(id.as_ref(), &fourth_wheel_id);
+                assert_eq!(id, &fourth_wheel_id);
             }
         };
     }
@@ -591,15 +586,15 @@ fn when_getting_the_children_it_should_return_all_the_directly_connected_element
 
     let first_name = "a".to_string();
     let first_element = create_generic_non_actuated_element(first_name);
-    let first_id = first_element.id().clone();
+    let first_id = *first_element.id();
 
     let second_name = "b".to_string();
     let second_element = create_generic_non_actuated_element(second_name);
-    let second_id = second_element.id().clone();
+    let second_id = *second_element.id();
 
     let third_name = "c".to_string();
     let third_element = create_wheel_element(third_name);
-    let third_id = third_element.id().clone();
+    let third_id = *third_element.id();
 
     // Get the mutable tree to add something
     {
@@ -617,13 +612,13 @@ fn when_getting_the_children_it_should_return_all_the_directly_connected_element
                 );
             }
             Ok(id) => {
-                assert_eq!(id.as_ref(), &first_id);
+                assert_eq!(id, &first_id);
             }
         };
 
         match tree.add_element(
             second_element,
-            first_id.clone(),
+            first_id,
             Translation3::<f64>::identity(),
             UnitQuaternion::identity(),
         ) {
@@ -635,13 +630,13 @@ fn when_getting_the_children_it_should_return_all_the_directly_connected_element
                 );
             }
             Ok(id) => {
-                assert_eq!(id.as_ref(), &second_id);
+                assert_eq!(id, &second_id);
             }
         };
 
         match tree.add_element(
             third_element,
-            first_id.clone(),
+            first_id,
             Translation3::<f64>::identity(),
             UnitQuaternion::identity(),
         ) {
@@ -653,7 +648,7 @@ fn when_getting_the_children_it_should_return_all_the_directly_connected_element
                 );
             }
             Ok(id) => {
-                assert_eq!(id.as_ref(), &third_id);
+                assert_eq!(id, &third_id);
             }
         };
     }
@@ -681,15 +676,15 @@ fn when_getting_the_children_with_invalid_parent_it_should_error() {
 
     let first_name = "a".to_string();
     let first_element = create_generic_non_actuated_element(first_name);
-    let first_id = first_element.id().clone();
+    let first_id = *first_element.id();
 
     let second_name = "b".to_string();
     let second_element = create_generic_non_actuated_element(second_name);
-    let second_id = second_element.id().clone();
+    let second_id = *second_element.id();
 
     let third_name = "c".to_string();
     let third_element = create_wheel_element(third_name);
-    let third_id = third_element.id().clone();
+    let third_id = *third_element.id();
 
     // Get the mutable tree to add something
     {
@@ -707,13 +702,13 @@ fn when_getting_the_children_with_invalid_parent_it_should_error() {
                 );
             }
             Ok(id) => {
-                assert_eq!(id.as_ref(), &first_id);
+                assert_eq!(id, &first_id);
             }
         };
 
         match tree.add_element(
             second_element,
-            first_id.clone(),
+            first_id,
             Translation3::<f64>::identity(),
             UnitQuaternion::identity(),
         ) {
@@ -725,13 +720,13 @@ fn when_getting_the_children_with_invalid_parent_it_should_error() {
                 );
             }
             Ok(id) => {
-                assert_eq!(id.as_ref(), &second_id);
+                assert_eq!(id, &second_id);
             }
         };
 
         match tree.add_element(
             third_element,
-            first_id.clone(),
+            first_id,
             Translation3::<f64>::identity(),
             UnitQuaternion::identity(),
         ) {
@@ -743,7 +738,7 @@ fn when_getting_the_children_with_invalid_parent_it_should_error() {
                 );
             }
             Ok(id) => {
-                assert_eq!(id.as_ref(), &third_id);
+                assert_eq!(id, &third_id);
             }
         };
     }
@@ -763,15 +758,15 @@ fn when_getting_the_children_with_no_parent_it_should_error() {
 
     let first_name = "a".to_string();
     let first_element = create_generic_non_actuated_element(first_name);
-    let first_id = first_element.id().clone();
+    let first_id = *first_element.id();
 
     let second_name = "b".to_string();
     let second_element = create_generic_non_actuated_element(second_name);
-    let second_id = second_element.id().clone();
+    let second_id = *second_element.id();
 
     let third_name = "c".to_string();
     let third_element = create_wheel_element(third_name);
-    let third_id = third_element.id().clone();
+    let third_id = *third_element.id();
 
     // Get the mutable tree to add something
     {
@@ -789,13 +784,13 @@ fn when_getting_the_children_with_no_parent_it_should_error() {
                 );
             }
             Ok(id) => {
-                assert_eq!(id.as_ref(), &first_id);
+                assert_eq!(id, &first_id);
             }
         };
 
         match tree.add_element(
             second_element,
-            first_id.clone(),
+            first_id,
             Translation3::<f64>::identity(),
             UnitQuaternion::identity(),
         ) {
@@ -807,13 +802,13 @@ fn when_getting_the_children_with_no_parent_it_should_error() {
                 );
             }
             Ok(id) => {
-                assert_eq!(id.as_ref(), &second_id);
+                assert_eq!(id, &second_id);
             }
         };
 
         match tree.add_element(
             third_element,
-            first_id.clone(),
+            first_id,
             Translation3::<f64>::identity(),
             UnitQuaternion::identity(),
         ) {
@@ -825,7 +820,7 @@ fn when_getting_the_children_with_no_parent_it_should_error() {
                 );
             }
             Ok(id) => {
-                assert_eq!(id.as_ref(), &third_id);
+                assert_eq!(id, &third_id);
             }
         };
     }
@@ -854,15 +849,15 @@ fn when_getting_the_parent_it_should_return_the_correct_element() {
 
     let first_name = "a".to_string();
     let first_element = create_generic_non_actuated_element(first_name);
-    let first_id = first_element.id().clone();
+    let first_id = *first_element.id();
 
     let second_name = "b".to_string();
     let second_element = create_generic_non_actuated_element(second_name);
-    let second_id = second_element.id().clone();
+    let second_id = *second_element.id();
 
     let third_name = "c".to_string();
     let third_element = create_wheel_element(third_name);
-    let third_id = third_element.id().clone();
+    let third_id = *third_element.id();
 
     // Get the mutable tree to add something
     {
@@ -880,13 +875,13 @@ fn when_getting_the_parent_it_should_return_the_correct_element() {
                 );
             }
             Ok(id) => {
-                assert_eq!(id.as_ref(), &first_id);
+                assert_eq!(id, &first_id);
             }
         };
 
         match tree.add_element(
             second_element,
-            first_id.clone(),
+            first_id,
             Translation3::<f64>::identity(),
             UnitQuaternion::identity(),
         ) {
@@ -898,13 +893,13 @@ fn when_getting_the_parent_it_should_return_the_correct_element() {
                 );
             }
             Ok(id) => {
-                assert_eq!(id.as_ref(), &second_id);
+                assert_eq!(id, &second_id);
             }
         };
 
         match tree.add_element(
             third_element,
-            second_id.clone(),
+            second_id,
             Translation3::<f64>::identity(),
             UnitQuaternion::identity(),
         ) {
@@ -916,7 +911,7 @@ fn when_getting_the_parent_it_should_return_the_correct_element() {
                 );
             }
             Ok(id) => {
-                assert_eq!(id.as_ref(), &third_id);
+                assert_eq!(id, &third_id);
             }
         };
     }
@@ -951,15 +946,15 @@ fn when_getting_the_parent_with_invalid_frame_elements_it_should_error() {
 
     let first_name = "a".to_string();
     let first_element = create_generic_non_actuated_element(first_name);
-    let first_id = first_element.id().clone();
+    let first_id = *first_element.id();
 
     let second_name = "b".to_string();
     let second_element = create_generic_non_actuated_element(second_name);
-    let second_id = second_element.id().clone();
+    let second_id = *second_element.id();
 
     let third_name = "c".to_string();
     let third_element = create_wheel_element(third_name);
-    let third_id = third_element.id().clone();
+    let third_id = *third_element.id();
 
     // Get the mutable tree to add something
     {
@@ -977,13 +972,13 @@ fn when_getting_the_parent_with_invalid_frame_elements_it_should_error() {
                 );
             }
             Ok(id) => {
-                assert_eq!(id.as_ref(), &first_id);
+                assert_eq!(id, &first_id);
             }
         };
 
         match tree.add_element(
             second_element,
-            first_id.clone(),
+            first_id,
             Translation3::<f64>::identity(),
             UnitQuaternion::identity(),
         ) {
@@ -995,13 +990,13 @@ fn when_getting_the_parent_with_invalid_frame_elements_it_should_error() {
                 );
             }
             Ok(id) => {
-                assert_eq!(id.as_ref(), &second_id);
+                assert_eq!(id, &second_id);
             }
         };
 
         match tree.add_element(
             third_element,
-            second_id.clone(),
+            second_id,
             Translation3::<f64>::identity(),
             UnitQuaternion::identity(),
         ) {
@@ -1013,7 +1008,7 @@ fn when_getting_the_parent_with_invalid_frame_elements_it_should_error() {
                 );
             }
             Ok(id) => {
-                assert_eq!(id.as_ref(), &third_id);
+                assert_eq!(id, &third_id);
             }
         };
     }
@@ -1057,6 +1052,37 @@ fn when_getting_the_wheels_with_no_frame_elements_it_should_error() {
             }
         ),
     };
+}
+
+#[test]
+fn when_creating_physical_properties_it_should_store_the_values_correctly() {
+    #[rustfmt::skip]
+    let moment_of_inertia = Matrix3::new(
+        11.0, 12.0, 13.0,
+        21.0, 22.0, 23.0,
+        31.0, 32.0, 33.0);
+
+    #[rustfmt::skip]
+    let spatial_inertia = Matrix6::new(
+        11.0, 12.0, 13.0, 14.0, 15.0, 16.0,
+        21.0, 22.0, 23.0, 24.0, 25.0, 26.0,
+        31.0, 32.0, 33.0, 34.0, 35.0, 36.0,
+        41.0, 42.0, 43.0, 44.0, 45.0, 46.0,
+        51.0, 52.0, 53.0, 54.0, 55.0, 56.0,
+        61.0, 62.0, 63.0, 64.0, 65.0, 66.0);
+
+    let properties = ChassisElementPhysicalProperties::new(
+        10.0,
+        Vector3::new(2.0, 3.0, 4.0),
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
+    assert_eq!(10.0, properties.mass());
+
+    assert_eq!(2.0, properties.center_of_mass[0]);
+    assert_eq!(3.0, properties.center_of_mass[1]);
+    assert_eq!(4.0, properties.center_of_mass[2]);
 }
 
 // MotionModel
@@ -1148,7 +1174,7 @@ impl HardwareActuator for MockHardwareActuator {
     }
 }
 
-fn add_actuated_joint_to_model<'a>(
+fn add_actuated_joint_to_model(
     model: &mut MotionModel,
     parent_id: &FrameID,
     position: DriveModulePosition,
@@ -1169,16 +1195,20 @@ fn add_actuated_joint_to_model<'a>(
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
-    model.add_actuated_chassis_element(
-        name,
-        dof,
-        parent_id.clone(),
-        position_relative_to_parent,
-        orientation_relative_to_parent,
+    let physical_properties = ChassisElementPhysicalProperties::new(
         mass,
         center_of_mass,
         moment_of_inertia,
         spatial_inertia,
+    );
+
+    model.add_actuated_chassis_element(
+        name,
+        dof,
+        *parent_id,
+        position_relative_to_parent,
+        orientation_relative_to_parent,
+        physical_properties,
         actuator,
     )
 }
@@ -1192,18 +1222,22 @@ fn add_body_to_model(model: &mut MotionModel) -> Result<FrameID, Error> {
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
-    model.add_body(
-        name,
-        position_relative_to_world,
-        orientation_relative_to_world,
+    let physical_properties = ChassisElementPhysicalProperties::new(
         mass,
         center_of_mass,
         moment_of_inertia,
         spatial_inertia,
+    );
+
+    model.add_body(
+        name,
+        position_relative_to_world,
+        orientation_relative_to_world,
+        physical_properties,
     )
 }
 
-fn add_steering_to_model<'a>(
+fn add_steering_to_model(
     model: &mut MotionModel,
     parent_id: &FrameID,
     position: DriveModulePosition,
@@ -1223,15 +1257,19 @@ fn add_steering_to_model<'a>(
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
-    model.add_steering_element(
-        name,
-        parent_id.clone(),
-        position_relative_to_parent,
-        orientation_relative_to_parent,
+    let physical_properties = ChassisElementPhysicalProperties::new(
         mass,
         center_of_mass,
         moment_of_inertia,
         spatial_inertia,
+    );
+
+    model.add_steering_element(
+        name,
+        *parent_id,
+        position_relative_to_parent,
+        orientation_relative_to_parent,
+        physical_properties,
         actuator,
     )
 }
@@ -1255,21 +1293,25 @@ fn add_suspension_to_model(
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
-    model.add_suspension_element(
-        name,
-        FrameDofType::PrismaticZ,
-        parent_id.clone(),
-        position_relative_to_parent,
-        orientation_relative_to_parent,
+    let physical_properties = ChassisElementPhysicalProperties::new(
         mass,
         center_of_mass,
         moment_of_inertia,
         spatial_inertia,
+    );
+
+    model.add_suspension_element(
+        name,
+        FrameDofType::PrismaticZ,
+        *parent_id,
+        position_relative_to_parent,
+        orientation_relative_to_parent,
+        physical_properties,
         JointConstraint::new(),
     )
 }
 
-fn add_wheel_to_model<'a>(
+fn add_wheel_to_model(
     model: &mut MotionModel,
     parent_id: &FrameID,
     actuator: Actuator,
@@ -1286,15 +1328,19 @@ fn add_wheel_to_model<'a>(
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
-    model.add_wheel(
-        name,
-        parent_id.clone(),
-        position_relative_to_parent,
-        orientation_relative_to_parent,
+    let physical_properties = ChassisElementPhysicalProperties::new(
         mass,
         center_of_mass,
         moment_of_inertia,
         spatial_inertia,
+    );
+
+    model.add_wheel(
+        name,
+        *parent_id,
+        position_relative_to_parent,
+        orientation_relative_to_parent,
+        physical_properties,
         actuator,
     )
 }
@@ -1312,6 +1358,13 @@ fn when_adding_actuated_chassis_element_it_should_store_the_element() {
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     let (sender, receiver) = crossbeam_channel::unbounded();
     let (cmd_sender, _cmd_receiver) = crossbeam_channel::unbounded();
     let mut hardware_actuator = MockHardwareActuator {
@@ -1328,13 +1381,10 @@ fn when_adding_actuated_chassis_element_it_should_store_the_element() {
     let result = model.add_actuated_chassis_element(
         name.clone(),
         FrameDofType::PrismaticX,
-        body_id.clone(),
+        body_id,
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         actuator,
     );
 
@@ -1380,6 +1430,13 @@ fn when_adding_actuated_chassis_element_with_invalid_parent_it_should_error() {
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     let (sender, receiver) = crossbeam_channel::unbounded();
     let (cmd_sender, _cmd_receiver) = crossbeam_channel::unbounded();
     let mut hardware_actuator = MockHardwareActuator {
@@ -1399,10 +1456,7 @@ fn when_adding_actuated_chassis_element_with_invalid_parent_it_should_error() {
         FrameID::new(),
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         actuator,
     );
 
@@ -1421,6 +1475,13 @@ fn when_adding_actuated_chassis_element_with_none_parent_it_should_error() {
     let center_of_mass = Vector3::<f64>::identity();
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
+
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
 
     let (sender, receiver) = crossbeam_channel::unbounded();
     let (cmd_sender, _cmd_receiver) = crossbeam_channel::unbounded();
@@ -1441,10 +1502,7 @@ fn when_adding_actuated_chassis_element_with_none_parent_it_should_error() {
         FrameID::none(),
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         actuator,
     );
 
@@ -1499,6 +1557,13 @@ fn when_adding_actuated_chassis_element_with_parent_wheel_it_should_error() {
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     let (sender, receiver) = crossbeam_channel::unbounded();
     let (cmd_sender, _cmd_receiver) = crossbeam_channel::unbounded();
     let mut hardware_actuator = MockHardwareActuator {
@@ -1515,13 +1580,10 @@ fn when_adding_actuated_chassis_element_with_parent_wheel_it_should_error() {
     let result = model.add_actuated_chassis_element(
         name.clone(),
         FrameDofType::PrismaticX,
-        wheel_id.clone(),
+        wheel_id,
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         actuator,
     );
 
@@ -1538,15 +1600,19 @@ fn when_adding_body_it_should_store_the_element() {
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     let mut model = MotionModel::new();
     let result = model.add_body(
         name.clone(),
         position_relative_to_world,
         orientation_relative_to_world,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
     );
 
     assert!(result.is_ok());
@@ -1572,7 +1638,7 @@ fn when_adding_body_it_should_store_the_element() {
     let frame = frame_result.unwrap();
     assert_eq!(dof, frame.degree_of_freedom_kind());
     assert!(!frame.is_actuated());
-    assert!(!model.is_actuated(&id));
+    assert!(!model.is_actuated(id));
 
     let chassis_result = model.get_chassis_element(id);
     assert!(chassis_result.is_ok());
@@ -1605,15 +1671,19 @@ fn when_adding_static_chassis_element_it_should_store_the_element() {
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
-    let result = model.add_static_chassis_element(
-        name.clone(),
-        body_id.clone(),
-        position_relative_to_parent,
-        orientation_relative_to_parent,
+    let physical_properties = ChassisElementPhysicalProperties::new(
         mass,
         center_of_mass,
         moment_of_inertia,
         spatial_inertia,
+    );
+
+    let result = model.add_static_chassis_element(
+        name.clone(),
+        body_id,
+        position_relative_to_parent,
+        orientation_relative_to_parent,
+        physical_properties,
     );
 
     assert!(result.is_ok());
@@ -1655,15 +1725,19 @@ fn when_adding_static_chassis_element_with_invalid_parent_it_should_error() {
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     let result = model.add_static_chassis_element(
         name.clone(),
         FrameID::new(),
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
     );
 
     assert!(result.is_err());
@@ -1682,15 +1756,19 @@ fn when_adding_static_chassis_element_with_none_parent_it_should_error() {
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     let result = model.add_static_chassis_element(
         name.clone(),
         FrameID::none(),
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
     );
 
     assert!(result.is_err());
@@ -1745,15 +1823,19 @@ fn when_adding_static_chassis_element_with_parent_wheel_it_should_error() {
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
-    let result = model.add_static_chassis_element(
-        name.clone(),
-        wheel_id.clone(),
-        position_relative_to_parent,
-        orientation_relative_to_parent,
+    let physical_properties = ChassisElementPhysicalProperties::new(
         mass,
         center_of_mass,
         moment_of_inertia,
         spatial_inertia,
+    );
+
+    let result = model.add_static_chassis_element(
+        name.clone(),
+        wheel_id,
+        position_relative_to_parent,
+        orientation_relative_to_parent,
+        physical_properties,
     );
 
     assert!(result.is_err());
@@ -1772,6 +1854,13 @@ fn when_adding_steering_element_it_should_store_the_element() {
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     let (sender, receiver) = crossbeam_channel::unbounded();
     let (cmd_sender, _cmd_receiver) = crossbeam_channel::unbounded();
     let mut hardware_actuator = MockHardwareActuator {
@@ -1787,13 +1876,10 @@ fn when_adding_steering_element_it_should_store_the_element() {
 
     let result = model.add_steering_element(
         name.clone(),
-        body_id.clone(),
+        body_id,
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         actuator,
     );
 
@@ -1836,6 +1922,13 @@ fn when_adding_steering_element_with_invalid_parent_it_should_error() {
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     let (sender, receiver) = crossbeam_channel::unbounded();
     let (cmd_sender, _cmd_receiver) = crossbeam_channel::unbounded();
     let mut hardware_actuator = MockHardwareActuator {
@@ -1854,10 +1947,7 @@ fn when_adding_steering_element_with_invalid_parent_it_should_error() {
         FrameID::new(),
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         actuator,
     );
 
@@ -1877,6 +1967,13 @@ fn when_adding_steering_element_with_none_parent_it_should_error() {
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     let (sender, receiver) = crossbeam_channel::unbounded();
     let (cmd_sender, _cmd_receiver) = crossbeam_channel::unbounded();
     let mut hardware_actuator = MockHardwareActuator {
@@ -1895,10 +1992,7 @@ fn when_adding_steering_element_with_none_parent_it_should_error() {
         FrameID::none(),
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         actuator,
     );
 
@@ -1940,6 +2034,13 @@ fn when_adding_steering_element_with_multiple_steering_elements_in_chain_it_shou
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     let (sender2, receiver2) = crossbeam_channel::unbounded();
     let (cmd_sender2, _) = crossbeam_channel::unbounded();
     let mut hardware_actuator2 = MockHardwareActuator {
@@ -1954,13 +2055,10 @@ fn when_adding_steering_element_with_multiple_steering_elements_in_chain_it_shou
 
     let result = model.add_steering_element(
         name.clone(),
-        steering_id.clone(),
+        steering_id,
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         actuator2,
     );
 
@@ -2015,6 +2113,13 @@ fn when_adding_steering_element_with_parent_wheel_it_should_error() {
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     let (sender, receiver) = crossbeam_channel::unbounded();
     let (cmd_sender, _cmd_receiver) = crossbeam_channel::unbounded();
     let mut hardware_actuator = MockHardwareActuator {
@@ -2030,13 +2135,10 @@ fn when_adding_steering_element_with_parent_wheel_it_should_error() {
 
     let result = model.add_steering_element(
         name.clone(),
-        wheel_id.clone(),
+        wheel_id,
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         actuator,
     );
 
@@ -2056,18 +2158,22 @@ fn when_adding_suspension_element_it_should_store_the_element() {
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     let joint_constraint = JointConstraint::new();
 
     let result = model.add_suspension_element(
         name.clone(),
         FrameDofType::PrismaticX,
-        body_id.clone(),
+        body_id,
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         joint_constraint,
     );
 
@@ -2112,37 +2218,45 @@ fn when_adding_suspension_elements_multiple_times_it_should_store_the_elements()
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     // Joint 1
     let joint_constraint = JointConstraint::new();
 
     let result1 = model.add_suspension_element(
         name.clone(),
         FrameDofType::PrismaticX,
-        body_id.clone(),
+        body_id,
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         joint_constraint,
     );
 
     assert!(result1.is_ok());
 
     // Joint 2
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     let joint_constraint = JointConstraint::new();
 
     let result2 = model.add_suspension_element(
         name.clone(),
         FrameDofType::PrismaticX,
-        body_id.clone(),
+        body_id,
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         joint_constraint,
     );
 
@@ -2215,6 +2329,13 @@ fn when_adding_suspension_element_with_invalid_parent_it_should_error() {
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     let joint_constraint = JointConstraint::new();
 
     let result = model.add_suspension_element(
@@ -2223,10 +2344,7 @@ fn when_adding_suspension_element_with_invalid_parent_it_should_error() {
         FrameID::new(),
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         joint_constraint,
     );
 
@@ -2246,6 +2364,13 @@ fn when_adding_suspension_element_with_none_parent_it_should_error() {
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     let joint_constraint = JointConstraint::new();
 
     let result = model.add_suspension_element(
@@ -2254,10 +2379,7 @@ fn when_adding_suspension_element_with_none_parent_it_should_error() {
         FrameID::none(),
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         joint_constraint,
     );
 
@@ -2312,18 +2434,22 @@ fn when_adding_suspension_element_with_wheel_parent_it_should_error() {
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     let joint_constraint = JointConstraint::new();
 
     let result = model.add_suspension_element(
         name.clone(),
         FrameDofType::PrismaticX,
-        wheel_id.clone(),
+        wheel_id,
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         joint_constraint,
     );
 
@@ -2365,6 +2491,13 @@ fn when_adding_wheel_element_it_should_store_the_element() {
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     let (sender2, receiver2) = crossbeam_channel::unbounded();
     let (cmd_sender2, _) = crossbeam_channel::unbounded();
     let mut hardware_actuator2 = MockHardwareActuator {
@@ -2379,13 +2512,10 @@ fn when_adding_wheel_element_it_should_store_the_element() {
 
     let result = model.add_wheel(
         name.clone(),
-        steering_id.clone(),
+        steering_id,
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         actuator2,
     );
 
@@ -2463,6 +2593,13 @@ fn when_adding_wheel_element_with_invalid_parent_it_should_error() {
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     let (sender2, receiver2) = crossbeam_channel::unbounded();
     let (cmd_sender2, _) = crossbeam_channel::unbounded();
     let mut hardware_actuator2 = MockHardwareActuator {
@@ -2480,10 +2617,7 @@ fn when_adding_wheel_element_with_invalid_parent_it_should_error() {
         FrameID::new(),
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         actuator2,
     );
 
@@ -2525,6 +2659,13 @@ fn when_adding_wheel_element_with_none_parent_it_should_error() {
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     let (sender2, receiver2) = crossbeam_channel::unbounded();
     let (cmd_sender2, _) = crossbeam_channel::unbounded();
     let mut hardware_actuator2 = MockHardwareActuator {
@@ -2542,10 +2683,7 @@ fn when_adding_wheel_element_with_none_parent_it_should_error() {
         FrameID::none(),
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         actuator2,
     );
 
@@ -2600,6 +2738,13 @@ fn when_adding_wheel_element_with_wheel_parent_it_should_error() {
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     let (sender2, receiver2) = crossbeam_channel::unbounded();
     let (cmd_sender2, _) = crossbeam_channel::unbounded();
     let mut hardware_actuator2 = MockHardwareActuator {
@@ -2614,13 +2759,10 @@ fn when_adding_wheel_element_with_wheel_parent_it_should_error() {
 
     let result = model.add_wheel(
         name.clone(),
-        wheel_id.clone(),
+        wheel_id,
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         actuator2,
     );
 
@@ -2640,6 +2782,13 @@ fn when_adding_wheel_element_without_steering_parent_it_should_error() {
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
+    let physical_properties = ChassisElementPhysicalProperties::new(
+        mass,
+        center_of_mass,
+        moment_of_inertia,
+        spatial_inertia,
+    );
+
     let (sender, receiver) = crossbeam_channel::unbounded();
     let (cmd_sender, _cmd_receiver) = crossbeam_channel::unbounded();
     let mut hardware_actuator = MockHardwareActuator {
@@ -2655,13 +2804,10 @@ fn when_adding_wheel_element_without_steering_parent_it_should_error() {
 
     let result = model.add_wheel(
         name.clone(),
-        body_id.clone(),
+        body_id,
         position_relative_to_parent,
         orientation_relative_to_parent,
-        mass,
-        center_of_mass,
-        moment_of_inertia,
-        spatial_inertia,
+        physical_properties,
         actuator,
     );
 
@@ -3022,7 +3168,7 @@ fn when_getting_homogeneous_transform_to_body_with_one_element_and_motion_it_sho
     let (sender, receiver) = crossbeam_channel::unbounded();
     let (cmd_sender, _) = crossbeam_channel::unbounded();
     let mut hardware_actuator = MockHardwareActuator {
-        receiver: receiver,
+        receiver,
         sender: sender.clone(),
         command_sender: cmd_sender,
         update_sender: None,
@@ -3062,8 +3208,8 @@ fn when_getting_homogeneous_transform_to_body_with_one_element_and_motion_it_sho
         JointState::new(angle_x_rad, None, None, None),
         ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
     );
-    let _ = sender.send(msg).unwrap();
-    let _ = hardware_actuator
+    sender.send(msg).unwrap();
+    hardware_actuator
         .update_sender
         .as_ref()
         .unwrap()
@@ -3121,8 +3267,8 @@ fn when_getting_homogeneous_transform_to_body_with_one_element_and_motion_it_sho
         JointState::new(angle_x_rad, None, None, None),
         ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
     );
-    let _ = sender.send(msg).unwrap();
-    let _ = hardware_actuator
+    sender.send(msg).unwrap();
+    hardware_actuator
         .update_sender
         .as_ref()
         .unwrap()
@@ -3389,8 +3535,8 @@ fn when_getting_homogeneous_transform_to_body_with_primatic_x_and_prismatic_y_mo
         JointState::new(joint_1_x, None, None, None),
         ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
     );
-    let _ = sender1.send(msg).unwrap();
-    let _ = hardware_actuator1
+    sender1.send(msg).unwrap();
+    hardware_actuator1
         .update_sender
         .unwrap()
         .send(hardware_actuator1.id.unwrap())
@@ -3411,8 +3557,8 @@ fn when_getting_homogeneous_transform_to_body_with_primatic_x_and_prismatic_y_mo
         JointState::new(joint_2_y, None, None, None),
         ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
     );
-    let _ = sender2.send(msg).unwrap();
-    let _ = hardware_actuator2
+    sender2.send(msg).unwrap();
+    hardware_actuator2
         .update_sender
         .unwrap()
         .send(hardware_actuator2.id.unwrap())
@@ -3538,8 +3684,8 @@ fn when_getting_homogeneous_transform_to_body_with_primatic_x_and_prismatic_z_mo
         JointState::new(joint_1_x, None, None, None),
         ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
     );
-    let _ = sender1.send(msg).unwrap();
-    let _ = hardware_actuator1
+    sender1.send(msg).unwrap();
+    hardware_actuator1
         .update_sender
         .unwrap()
         .send(hardware_actuator1.id.unwrap())
@@ -3560,8 +3706,8 @@ fn when_getting_homogeneous_transform_to_body_with_primatic_x_and_prismatic_z_mo
         JointState::new(joint_2_z, None, None, None),
         ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
     );
-    let _ = sender2.send(msg).unwrap();
-    let _ = hardware_actuator2
+    sender2.send(msg).unwrap();
+    hardware_actuator2
         .update_sender
         .unwrap()
         .send(hardware_actuator2.id.unwrap())
@@ -3691,8 +3837,8 @@ fn when_getting_homogeneous_transform_to_body_with_primatic_y_and_prismatic_z_mo
         JointState::new(joint_1_y, None, None, None),
         ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
     );
-    let _ = sender1.send(msg).unwrap();
-    let _ = hardware_actuator1
+    sender1.send(msg).unwrap();
+    hardware_actuator1
         .update_sender
         .unwrap()
         .send(hardware_actuator1.id.unwrap())
@@ -3713,8 +3859,8 @@ fn when_getting_homogeneous_transform_to_body_with_primatic_y_and_prismatic_z_mo
         JointState::new(joint_2_z, None, None, None),
         ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
     );
-    let _ = sender2.send(msg).unwrap();
-    let _ = hardware_actuator2
+    sender2.send(msg).unwrap();
+    hardware_actuator2
         .update_sender
         .unwrap()
         .send(hardware_actuator2.id.unwrap())
@@ -3848,8 +3994,8 @@ fn when_getting_homogeneous_transform_to_frame_across_wheel_chains_and_motion_it
         JointState::new(angle_joint_1_x_rad, None, None, None),
         ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
     );
-    let _ = sender1.send(msg).unwrap();
-    let _ = hardware_actuator1
+    sender1.send(msg).unwrap();
+    hardware_actuator1
         .update_sender
         .unwrap()
         .send(hardware_actuator1.id.unwrap())
@@ -3876,8 +4022,8 @@ fn when_getting_homogeneous_transform_to_frame_across_wheel_chains_and_motion_it
         JointState::new(angle_joint_2_z_rad, None, None, None),
         ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
     );
-    let _ = sender2.send(msg).unwrap();
-    let _ = hardware_actuator2
+    sender2.send(msg).unwrap();
+    hardware_actuator2
         .update_sender
         .unwrap()
         .send(hardware_actuator2.id.unwrap())
@@ -4156,7 +4302,7 @@ fn when_getting_homogeneous_transform_to_parent_with_primatic_x_motion_should_re
     let (sender, receiver) = crossbeam_channel::unbounded();
     let (cmd_sender, _) = crossbeam_channel::unbounded();
     let mut hardware_actuator = MockHardwareActuator {
-        receiver: receiver,
+        receiver,
         sender: sender.clone(),
         command_sender: cmd_sender,
         update_sender: None,
@@ -4201,8 +4347,8 @@ fn when_getting_homogeneous_transform_to_parent_with_primatic_x_motion_should_re
         JointState::new(1.0, None, None, None),
         ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
     );
-    let _ = sender.send(msg).unwrap();
-    let _ = hardware_actuator
+    sender.send(msg).unwrap();
+    hardware_actuator
         .update_sender
         .as_ref()
         .unwrap()
@@ -4238,8 +4384,8 @@ fn when_getting_homogeneous_transform_to_parent_with_primatic_x_motion_should_re
         JointState::new(-1.0, None, None, None),
         ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
     );
-    let _ = sender.send(msg).unwrap();
-    let _ = hardware_actuator
+    sender.send(msg).unwrap();
+    hardware_actuator
         .update_sender
         .as_ref()
         .unwrap()
@@ -4280,7 +4426,7 @@ fn when_getting_homogeneous_transform_to_parent_with_primatic_y_motion_should_re
     let (sender, receiver) = crossbeam_channel::unbounded();
     let (cmd_sender, _) = crossbeam_channel::unbounded();
     let mut hardware_actuator = MockHardwareActuator {
-        receiver: receiver,
+        receiver,
         sender: sender.clone(),
         command_sender: cmd_sender,
         update_sender: None,
@@ -4325,8 +4471,8 @@ fn when_getting_homogeneous_transform_to_parent_with_primatic_y_motion_should_re
         JointState::new(1.0, None, None, None),
         ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
     );
-    let _ = sender.send(msg).unwrap();
-    let _ = hardware_actuator
+    sender.send(msg).unwrap();
+    hardware_actuator
         .update_sender
         .as_ref()
         .unwrap()
@@ -4362,8 +4508,8 @@ fn when_getting_homogeneous_transform_to_parent_with_primatic_y_motion_should_re
         JointState::new(-1.0, None, None, None),
         ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
     );
-    let _ = sender.send(msg).unwrap();
-    let _ = hardware_actuator
+    sender.send(msg).unwrap();
+    hardware_actuator
         .update_sender
         .as_ref()
         .unwrap()
@@ -4404,7 +4550,7 @@ fn when_getting_homogeneous_transform_to_parent_with_primatic_z_motion_should_re
     let (sender, receiver) = crossbeam_channel::unbounded();
     let (cmd_sender, _) = crossbeam_channel::unbounded();
     let mut hardware_actuator = MockHardwareActuator {
-        receiver: receiver,
+        receiver,
         sender: sender.clone(),
         command_sender: cmd_sender,
         update_sender: None,
@@ -4449,8 +4595,8 @@ fn when_getting_homogeneous_transform_to_parent_with_primatic_z_motion_should_re
         JointState::new(1.0, None, None, None),
         ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
     );
-    let _ = sender.send(msg).unwrap();
-    let _ = hardware_actuator
+    sender.send(msg).unwrap();
+    hardware_actuator
         .update_sender
         .as_ref()
         .unwrap()
@@ -4486,8 +4632,8 @@ fn when_getting_homogeneous_transform_to_parent_with_primatic_z_motion_should_re
         JointState::new(-1.0, None, None, None),
         ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
     );
-    let _ = sender.send(msg).unwrap();
-    let _ = hardware_actuator
+    sender.send(msg).unwrap();
+    hardware_actuator
         .update_sender
         .as_ref()
         .unwrap()
@@ -4528,7 +4674,7 @@ fn when_getting_homogeneous_transform_to_parent_with_revolute_x_motion_should_re
     let (sender, receiver) = crossbeam_channel::unbounded();
     let (cmd_sender, _) = crossbeam_channel::unbounded();
     let mut hardware_actuator = MockHardwareActuator {
-        receiver: receiver,
+        receiver,
         sender: sender.clone(),
         command_sender: cmd_sender,
         update_sender: None,
@@ -4576,8 +4722,8 @@ fn when_getting_homogeneous_transform_to_parent_with_revolute_x_motion_should_re
         JointState::new(angle_x_rad, None, None, None),
         ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
     );
-    let _ = sender.send(msg).unwrap();
-    let _ = hardware_actuator
+    sender.send(msg).unwrap();
+    hardware_actuator
         .update_sender
         .as_ref()
         .unwrap()
@@ -4634,8 +4780,8 @@ fn when_getting_homogeneous_transform_to_parent_with_revolute_x_motion_should_re
         JointState::new(angle_x_rad, None, None, None),
         ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
     );
-    let _ = sender.send(msg).unwrap();
-    let _ = hardware_actuator
+    sender.send(msg).unwrap();
+    hardware_actuator
         .update_sender
         .as_ref()
         .unwrap()
@@ -4696,7 +4842,7 @@ fn when_getting_homogeneous_transform_to_parent_with_revolute_y_motion_should_re
     let (sender, receiver) = crossbeam_channel::unbounded();
     let (cmd_sender, _) = crossbeam_channel::unbounded();
     let mut hardware_actuator = MockHardwareActuator {
-        receiver: receiver,
+        receiver,
         sender: sender.clone(),
         command_sender: cmd_sender,
         update_sender: None,
@@ -4743,8 +4889,8 @@ fn when_getting_homogeneous_transform_to_parent_with_revolute_y_motion_should_re
         JointState::new(angle_y_rad, None, None, None),
         ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
     );
-    let _ = sender.send(msg).unwrap();
-    let _ = hardware_actuator
+    sender.send(msg).unwrap();
+    hardware_actuator
         .update_sender
         .as_ref()
         .unwrap()
@@ -4802,8 +4948,8 @@ fn when_getting_homogeneous_transform_to_parent_with_revolute_y_motion_should_re
         JointState::new(angle_y_rad, None, None, None),
         ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
     );
-    let _ = sender.send(msg).unwrap();
-    let _ = hardware_actuator
+    sender.send(msg).unwrap();
+    hardware_actuator
         .update_sender
         .as_ref()
         .unwrap()
@@ -4864,7 +5010,7 @@ fn when_getting_homogeneous_transform_to_parent_with_revolute_z_motion_should_re
     let (sender, receiver) = crossbeam_channel::unbounded();
     let (cmd_sender, _) = crossbeam_channel::unbounded();
     let mut hardware_actuator = MockHardwareActuator {
-        receiver: receiver,
+        receiver,
         sender: sender.clone(),
         command_sender: cmd_sender,
         update_sender: None,
@@ -4910,8 +5056,8 @@ fn when_getting_homogeneous_transform_to_parent_with_revolute_z_motion_should_re
         JointState::new(angle_z_rad, None, None, None),
         ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
     );
-    let _ = sender.send(msg).unwrap();
-    let _ = hardware_actuator
+    sender.send(msg).unwrap();
+    hardware_actuator
         .update_sender
         .as_ref()
         .unwrap()
@@ -4965,8 +5111,8 @@ fn when_getting_homogeneous_transform_to_parent_with_revolute_z_motion_should_re
         JointState::new(angle_z_rad, None, None, None),
         ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
     );
-    let _ = sender.send(msg).unwrap();
-    let _ = hardware_actuator
+    sender.send(msg).unwrap();
+    hardware_actuator
         .update_sender
         .as_ref()
         .unwrap()
@@ -5109,7 +5255,7 @@ fn when_getting_active_suspension_with_more_actuators_than_wheels_it_should_retu
     let (sender, receiver) = crossbeam_channel::unbounded();
     let (cmd_sender, _) = crossbeam_channel::unbounded();
     let mut hardware_actuator = MockHardwareActuator {
-        receiver: receiver,
+        receiver,
         sender: sender.clone(),
         command_sender: cmd_sender,
         update_sender: None,
@@ -5196,7 +5342,7 @@ fn when_testing_if_a_frame_is_an_ancestor_it_should_return_false_if_it_is_not() 
     let (sender, receiver) = crossbeam_channel::unbounded();
     let (cmd_sender, _) = crossbeam_channel::unbounded();
     let mut hardware_actuator = MockHardwareActuator {
-        receiver: receiver,
+        receiver,
         sender: sender.clone(),
         command_sender: cmd_sender,
         update_sender: None,
@@ -5304,7 +5450,7 @@ fn when_testing_if_a_frame_is_an_ancestor_it_should_return_tryue_if_it_is() {
     let (sender, receiver) = crossbeam_channel::unbounded();
     let (cmd_sender, _) = crossbeam_channel::unbounded();
     let mut hardware_actuator = MockHardwareActuator {
-        receiver: receiver,
+        receiver,
         sender: sender.clone(),
         command_sender: cmd_sender,
         update_sender: None,

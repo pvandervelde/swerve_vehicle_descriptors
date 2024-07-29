@@ -11,7 +11,7 @@ use swerve_vehicle_descriptors::{
     },
     model_elements::{
         frame_elements::{Actuator, FrameDofType, FrameID, JointConstraint},
-        model::MotionModel,
+        model::{ChassisElementPhysicalProperties, MotionModel},
     },
     number_space::NumberSpaceType,
     Error,
@@ -37,7 +37,7 @@ pub fn motion_model_get_children(c: &mut Criterion) {
     let wheel_ids = model.get_wheels().unwrap();
 
     c.bench_function("MotionModel::get_children", |b| {
-        b.iter(|| model.get_children(black_box(wheel_ids.get(0).unwrap())));
+        b.iter(|| model.get_children(black_box(wheel_ids.first().unwrap())));
     });
 }
 
@@ -50,7 +50,7 @@ pub fn motion_model_get_homogeneous_transform_between_frames(c: &mut Criterion) 
         |b| {
             b.iter(|| {
                 model.get_homogeneous_transform_between_frames(
-                    black_box(wheel_ids.get(0).unwrap()),
+                    black_box(wheel_ids.first().unwrap()),
                     black_box(wheel_ids.get(1).unwrap()),
                 )
             });
@@ -66,7 +66,7 @@ pub fn motion_model_get_homogeneous_transform_to_ancestor(c: &mut Criterion) {
     c.bench_function("MotionModel::get_homogeneous_transform_to_ancestor", |b| {
         b.iter(|| {
             model.get_homogeneous_transform_to_ancestor(
-                black_box(wheel_ids.get(0).unwrap()),
+                black_box(wheel_ids.first().unwrap()),
                 black_box(body_id),
             )
         });
@@ -78,7 +78,7 @@ pub fn motion_model_get_homogeneous_transform_to_body(c: &mut Criterion) {
     let wheel_ids = model.get_wheels().unwrap();
 
     c.bench_function("MotionModel::get_homogeneous_transform_to_body", |b| {
-        b.iter(|| model.get_homogeneous_transform_to_body(black_box(wheel_ids.get(0).unwrap())));
+        b.iter(|| model.get_homogeneous_transform_to_body(black_box(wheel_ids.first().unwrap())));
     });
 }
 
@@ -87,7 +87,7 @@ pub fn motion_model_get_homogeneous_transform_to_parent(c: &mut Criterion) {
     let wheel_ids = model.get_wheels().unwrap();
 
     c.bench_function("MotionModel::get_homogeneous_transform_to_parent", |b| {
-        b.iter(|| model.get_homogeneous_transform_to_parent(black_box(wheel_ids.get(0).unwrap())));
+        b.iter(|| model.get_homogeneous_transform_to_parent(black_box(wheel_ids.first().unwrap())));
     });
 }
 
@@ -96,7 +96,7 @@ pub fn motion_model_get_steering_frame_for_wheel(c: &mut Criterion) {
     let wheel_ids = model.get_wheels().unwrap();
 
     c.bench_function("MotionModel::get_steering_frame_for_wheel", |b| {
-        b.iter(|| model.get_steering_frame_for_wheel(black_box(wheel_ids.get(0).unwrap())));
+        b.iter(|| model.get_steering_frame_for_wheel(black_box(wheel_ids.first().unwrap())));
     });
 }
 
@@ -107,7 +107,7 @@ pub fn motion_model_is_ancestor(c: &mut Criterion) {
     c.bench_function("MotionModel::is_ancestor", |b| {
         b.iter(|| {
             model.is_ancestor(
-                black_box(wheel_ids.get(0).unwrap()),
+                black_box(wheel_ids.first().unwrap()),
                 black_box(wheel_ids.get(1).unwrap()),
             )
         });
@@ -247,7 +247,7 @@ impl HardwareActuator for MockHardwareActuator {
     }
 }
 
-fn add_actuated_joint_to_model<'a>(
+fn add_actuated_joint_to_model(
     model: &mut MotionModel,
     parent_id: &FrameID,
     position: DriveModulePosition,
@@ -268,16 +268,20 @@ fn add_actuated_joint_to_model<'a>(
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
-    model.add_actuated_chassis_element(
-        name,
-        dof,
-        parent_id.clone(),
-        position_relative_to_parent,
-        orientation_relative_to_parent,
+    let physical_properties = ChassisElementPhysicalProperties::new(
         mass,
         center_of_mass,
         moment_of_inertia,
         spatial_inertia,
+    );
+
+    model.add_actuated_chassis_element(
+        name,
+        dof,
+        *parent_id,
+        position_relative_to_parent,
+        orientation_relative_to_parent,
+        physical_properties,
         actuator,
     )
 }
@@ -291,14 +295,18 @@ fn add_body_to_model(model: &mut MotionModel) -> Result<FrameID, Error> {
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
-    model.add_body(
-        name,
-        position_relative_to_world,
-        orientation_relative_to_world,
+    let physical_properties = ChassisElementPhysicalProperties::new(
         mass,
         center_of_mass,
         moment_of_inertia,
         spatial_inertia,
+    );
+
+    model.add_body(
+        name,
+        position_relative_to_world,
+        orientation_relative_to_world,
+        physical_properties,
     )
 }
 
@@ -306,7 +314,7 @@ fn add_drive_module(
     model: &mut MotionModel,
     body_id: &FrameID,
     position: DriveModulePosition,
-    change_processor: &Box<HardwareChangeProcessor>,
+    change_processor: &HardwareChangeProcessor,
 ) {
     let actuator1 = create_actuator(change_processor);
     let extension_joint_id = add_actuated_joint_to_model(
@@ -330,7 +338,7 @@ fn add_drive_module(
     extend_angular_actuator(&actuator3.1);
 }
 
-fn add_steering_to_model<'a>(
+fn add_steering_to_model(
     model: &mut MotionModel,
     parent_id: &FrameID,
     position: DriveModulePosition,
@@ -350,15 +358,19 @@ fn add_steering_to_model<'a>(
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
-    model.add_steering_element(
-        name,
-        parent_id.clone(),
-        position_relative_to_parent,
-        orientation_relative_to_parent,
+    let physical_properties = ChassisElementPhysicalProperties::new(
         mass,
         center_of_mass,
         moment_of_inertia,
         spatial_inertia,
+    );
+
+    model.add_steering_element(
+        name,
+        *parent_id,
+        position_relative_to_parent,
+        orientation_relative_to_parent,
+        physical_properties,
         actuator,
     )
 }
@@ -382,21 +394,25 @@ fn add_suspension_to_model(
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
-    model.add_suspension_element(
-        name,
-        FrameDofType::PrismaticZ,
-        parent_id.clone(),
-        position_relative_to_parent,
-        orientation_relative_to_parent,
+    let physical_properties = ChassisElementPhysicalProperties::new(
         mass,
         center_of_mass,
         moment_of_inertia,
         spatial_inertia,
+    );
+
+    model.add_suspension_element(
+        name,
+        FrameDofType::PrismaticZ,
+        *parent_id,
+        position_relative_to_parent,
+        orientation_relative_to_parent,
+        physical_properties,
         JointConstraint::new(),
     )
 }
 
-fn add_wheel_to_model<'a>(
+fn add_wheel_to_model(
     model: &mut MotionModel,
     parent_id: &FrameID,
     actuator: Actuator,
@@ -413,22 +429,24 @@ fn add_wheel_to_model<'a>(
     let moment_of_inertia = Matrix3::<f64>::identity();
     let spatial_inertia = Matrix6::<f64>::identity();
 
-    model.add_wheel(
-        name,
-        parent_id.clone(),
-        position_relative_to_parent,
-        orientation_relative_to_parent,
+    let physical_properties = ChassisElementPhysicalProperties::new(
         mass,
         center_of_mass,
         moment_of_inertia,
         spatial_inertia,
+    );
+
+    model.add_wheel(
+        name,
+        *parent_id,
+        position_relative_to_parent,
+        orientation_relative_to_parent,
+        physical_properties,
         actuator,
     )
 }
 
-fn create_actuator(
-    change_processor: &Box<HardwareChangeProcessor>,
-) -> (Actuator, MockHardwareActuator) {
+fn create_actuator(change_processor: &HardwareChangeProcessor) -> (Actuator, MockHardwareActuator) {
     let (sender, receiver) = crossbeam_channel::unbounded();
     let (cmd_sender, _cmd_receiver) = crossbeam_channel::unbounded();
     let mut hardware_actuator = MockHardwareActuator {
@@ -452,8 +470,8 @@ fn extend_angular_actuator(hardware_actuator: &MockHardwareActuator) {
         ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
     );
 
-    let _ = hardware_actuator.sender.send(msg).unwrap();
-    let _ = hardware_actuator
+    hardware_actuator.sender.send(msg).unwrap();
+    hardware_actuator
         .update_sender
         .as_ref()
         .unwrap()
@@ -464,14 +482,14 @@ fn extend_angular_actuator(hardware_actuator: &MockHardwareActuator) {
 fn extend_linear_actuator(hardware_actuator: &MockHardwareActuator) {
     // Push the actuator out
     let angle_x_deg = 30.0;
-    let angle_x_rad = angle_x_deg * (PI / 180.0);
+    let _angle_x_rad = angle_x_deg * (PI / 180.0);
     let msg = (
         JointState::new(0.5, None, None, None),
         ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
     );
 
-    let _ = hardware_actuator.sender.send(msg).unwrap();
-    let _ = hardware_actuator
+    hardware_actuator.sender.send(msg).unwrap();
+    hardware_actuator
         .update_sender
         .as_ref()
         .unwrap()
