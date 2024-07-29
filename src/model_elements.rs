@@ -31,7 +31,7 @@
 //! use swerve_vehicle_descriptors::hardware::joint_state::{ JointState, JointStateRange };
 //! use swerve_vehicle_descriptors::number_space::NumberSpaceType;
 //! use swerve_vehicle_descriptors::model_elements::frame_elements::{ Actuator, FrameDofType, FrameID, JointConstraint };
-//! use swerve_vehicle_descriptors::model_elements::model::MotionModel;
+//! use swerve_vehicle_descriptors::model_elements::model::{ ChassisElementPhysicalProperties, MotionModel };
 //!
 //! // The following functions assume that they are creating a robot with the following layout:
 //! //
@@ -132,15 +132,19 @@
 //!
 //!     let name = "steering".to_string();
 //!
+//!     let physical_properties = ChassisElementPhysicalProperties::new(
+//!         1.0,
+//!         Vector3::<f64>::identity(),
+//!         Matrix3::<f64>::identity(),
+//!         Matrix6::<f64>::identity(),
+//!     );
+//!
 //!     model.add_steering_element(
 //!         name,
 //!         parent_id.clone(),
 //!         Translation3::<f64>::new(0.25 * mul_x as f64, 0.0 * mul_y as f64, -0.1 * mul_z as f64),
 //!         UnitQuaternion::<f64>::from_euler_angles(0.0, 0.0, angle * deg_to_rad),
-//!         1.0,
-//!         Vector3::<f64>::identity(),
-//!         Matrix3::<f64>::identity(),
-//!         Matrix6::<f64>::identity(),
+//!         physical_properties,
 //!         actuator,
 //!     )
 //! }
@@ -156,16 +160,20 @@
 //!
 //!     let name: String = "suspension".to_string();
 //!
+//!     let physical_properties = ChassisElementPhysicalProperties::new(
+//!         1.0,
+//!         Vector3::<f64>::identity(),
+//!         Matrix3::<f64>::identity(),
+//!         Matrix6::<f64>::identity(),
+//!     );
+//!
 //!     model.add_suspension_element(
 //!         name,
 //!         FrameDofType::PrismaticZ,
 //!         parent_id.clone(),
 //!         Translation3::<f64>::new(1.0 * mul_x as f64, 0.5 * mul_y as f64, 0.0 * mul_z as f64),
 //!         UnitQuaternion::<f64>::from_euler_angles(0.0, 0.0, angle * deg_to_rad),
-//!         1.0,
-//!         Vector3::<f64>::identity(),
-//!         Matrix3::<f64>::identity(),
-//!         Matrix6::<f64>::identity(),
+//!         physical_properties,
 //!         JointConstraint::new(),
 //!     )
 //! }
@@ -177,15 +185,19 @@
 //! ) -> Result<FrameID, Error> {
 //!     let name = "wheel".to_string();
 //!
+//!     let physical_properties = ChassisElementPhysicalProperties::new(
+//!         1.0,
+//!         Vector3::<f64>::identity(),
+//!         Matrix3::<f64>::identity(),
+//!         Matrix6::<f64>::identity(),
+//!     );
+//!
 //!     model.add_wheel(
 //!         name,
 //!         parent_id.clone(),
 //!         Translation3::<f64>::new(0.0, 0.0, -0.1),
 //!         UnitQuaternion::<f64>::identity(),
-//!         1.0,
-//!         Vector3::<f64>::identity(),
-//!         Matrix3::<f64>::identity(),
-//!         Matrix6::<f64>::identity(),
+//!         physical_properties,
 //!         actuator,
 //!     )
 //! }
@@ -207,15 +219,19 @@
 //! pub fn create_model() -> Result<MotionModel, Error> {
 //!     let mut model = MotionModel::new();
 //!
+//!     let physical_properties = ChassisElementPhysicalProperties::new(
+//!         10.0,
+//!         Vector3::<f64>::identity(),
+//!         Matrix3::<f64>::identity(),
+//!         Matrix6::<f64>::identity(),
+//!     );
+//!
 //!     // Add the body of the vehicle
 //!     let body_id = model.add_body(
 //!         "my-cool-vehicle".to_string(),
 //!         Translation3::<f64>::new(0.0, 0.0, 0.0),
 //!         UnitQuaternion::<f64>::from_euler_angles(0.0, 0.0, 0.0),
-//!         10.0,
-//!         Vector3::<f64>::identity(),
-//!         Matrix3::<f64>::identity(),
-//!         Matrix6::<f64>::identity(),
+//!         physical_properties,
 //!     )?;
 //!
 //!     let change_processor = Box::new(HardwareChangeProcessor::new(1000));
