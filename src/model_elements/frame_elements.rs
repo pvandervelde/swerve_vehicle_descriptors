@@ -80,11 +80,6 @@ pub struct FrameID {
 }
 
 impl FrameID {
-    /// Create a reference for the current ID.
-    pub fn as_ref(&self) -> &Self {
-        &self
-    }
-
     /// Returns a value indicating if the given ID is the [FrameID::none()] ID.
     pub fn is_none(&self) -> bool {
         self.id == NONE_FRAME_ID
@@ -104,9 +99,21 @@ impl FrameID {
     }
 }
 
+impl Default for FrameID {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Display for FrameID {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "FrameID [{}]", self.id)
+    }
+}
+
+impl AsRef<FrameID> for FrameID {
+    fn as_ref(&self) -> &FrameID {
+        self
     }
 }
 
@@ -161,13 +168,13 @@ impl ReferenceFrame {
 
     /// Returns the name of the element.
     pub fn name(&self) -> &str {
-        &self.name.as_ref()
+        self.name.as_ref()
     }
 
     /// Creates a new ReferenceFrame.
     pub fn new(name: String, degree_of_freedom_kind: FrameDofType, is_actuated: bool) -> Self {
         Self {
-            name: name,
+            name,
             id: FrameID::new(),
             degree_of_freedom_kind,
             is_actuated,
@@ -217,7 +224,7 @@ impl ChassisElement {
 
     /// Returns the name of the element.
     pub fn name(&self) -> &str {
-        &self.name.as_ref()
+        self.name.as_ref()
     }
 
     /// Creates a new ChassisElement.
@@ -242,7 +249,7 @@ impl ChassisElement {
         reference_frame: FrameID,
     ) -> Self {
         Self {
-            name: name,
+            name,
             mass_in_kg: mass,
             center_of_mass,
             moment_of_inertia,
@@ -294,9 +301,9 @@ impl JointSensor {
                 Ok(r) => {
                     return Ok(JointState::new(
                         r.get_position(),
-                        r.get_velocity().clone(),
-                        r.get_acceleration().clone(),
-                        r.get_jerk().clone(),
+                        *r.get_velocity(),
+                        *r.get_acceleration(),
+                        *r.get_jerk(),
                     ));
                 }
                 Err(_) => {
@@ -445,9 +452,9 @@ impl Actuator {
                 Ok(r) => {
                     return Ok(JointState::new(
                         r.state.get_position(),
-                        r.state.get_velocity().clone(),
-                        r.state.get_acceleration().clone(),
-                        r.state.get_jerk().clone(),
+                        *r.state.get_velocity(),
+                        *r.state.get_acceleration(),
+                        *r.state.get_jerk(),
                     ));
                 }
                 Err(_) => {
@@ -553,5 +560,11 @@ impl JointConstraint {
     /// Creates a new [JointConstraint] instance.
     pub fn new() -> Self {
         Self {}
+    }
+}
+
+impl Default for JointConstraint {
+    fn default() -> Self {
+        Self::new()
     }
 }

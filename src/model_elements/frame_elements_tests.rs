@@ -55,7 +55,7 @@ fn when_creating_new_ids_should_never_match_the_none_id() {
 #[test]
 fn when_comparing_id_with_itself_should_be_equal() {
     let id = FrameID::new();
-    let copy = id.clone();
+    let copy = id;
 
     assert_eq!(id, copy)
 }

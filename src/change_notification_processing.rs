@@ -39,11 +39,6 @@ pub struct ChangeID {
 }
 
 impl ChangeID {
-    /// Create a reference for the current ID.
-    pub fn as_ref(&self) -> &Self {
-        &self
-    }
-
     /// Returns a value indicating if the given ID is the [ChangeID::none()] ID.
     pub fn is_none(&self) -> bool {
         self.id == NONE_CHANGE_ID
@@ -63,9 +58,21 @@ impl ChangeID {
     }
 }
 
+impl Default for ChangeID {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Display for ChangeID {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "ChangeID [{}]", self.id)
+    }
+}
+
+impl AsRef<ChangeID> for ChangeID {
+    fn as_ref(&self) -> &ChangeID {
+        self
     }
 }
 
@@ -119,7 +126,7 @@ impl HardwareChangeProcessor {
             let guard = self.queue.lock();
 
             let mut map = guard.unwrap_or_else(|err| err.into_inner());
-            map.ready_queue.insert(result.clone(), closure);
+            map.ready_queue.insert(result, closure);
         }
 
         Ok((self.sender_template.clone(), result))

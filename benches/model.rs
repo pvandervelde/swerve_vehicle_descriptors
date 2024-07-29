@@ -37,7 +37,7 @@ pub fn motion_model_get_children(c: &mut Criterion) {
     let wheel_ids = model.get_wheels().unwrap();
 
     c.bench_function("MotionModel::get_children", |b| {
-        b.iter(|| model.get_children(black_box(wheel_ids.get(0).unwrap())));
+        b.iter(|| model.get_children(black_box(wheel_ids.first().unwrap())));
     });
 }
 
@@ -50,7 +50,7 @@ pub fn motion_model_get_homogeneous_transform_between_frames(c: &mut Criterion) 
         |b| {
             b.iter(|| {
                 model.get_homogeneous_transform_between_frames(
-                    black_box(wheel_ids.get(0).unwrap()),
+                    black_box(wheel_ids.first().unwrap()),
                     black_box(wheel_ids.get(1).unwrap()),
                 )
             });
@@ -66,7 +66,7 @@ pub fn motion_model_get_homogeneous_transform_to_ancestor(c: &mut Criterion) {
     c.bench_function("MotionModel::get_homogeneous_transform_to_ancestor", |b| {
         b.iter(|| {
             model.get_homogeneous_transform_to_ancestor(
-                black_box(wheel_ids.get(0).unwrap()),
+                black_box(wheel_ids.first().unwrap()),
                 black_box(body_id),
             )
         });
@@ -78,7 +78,7 @@ pub fn motion_model_get_homogeneous_transform_to_body(c: &mut Criterion) {
     let wheel_ids = model.get_wheels().unwrap();
 
     c.bench_function("MotionModel::get_homogeneous_transform_to_body", |b| {
-        b.iter(|| model.get_homogeneous_transform_to_body(black_box(wheel_ids.get(0).unwrap())));
+        b.iter(|| model.get_homogeneous_transform_to_body(black_box(wheel_ids.first().unwrap())));
     });
 }
 
@@ -87,7 +87,7 @@ pub fn motion_model_get_homogeneous_transform_to_parent(c: &mut Criterion) {
     let wheel_ids = model.get_wheels().unwrap();
 
     c.bench_function("MotionModel::get_homogeneous_transform_to_parent", |b| {
-        b.iter(|| model.get_homogeneous_transform_to_parent(black_box(wheel_ids.get(0).unwrap())));
+        b.iter(|| model.get_homogeneous_transform_to_parent(black_box(wheel_ids.first().unwrap())));
     });
 }
 
@@ -96,7 +96,7 @@ pub fn motion_model_get_steering_frame_for_wheel(c: &mut Criterion) {
     let wheel_ids = model.get_wheels().unwrap();
 
     c.bench_function("MotionModel::get_steering_frame_for_wheel", |b| {
-        b.iter(|| model.get_steering_frame_for_wheel(black_box(wheel_ids.get(0).unwrap())));
+        b.iter(|| model.get_steering_frame_for_wheel(black_box(wheel_ids.first().unwrap())));
     });
 }
 
@@ -107,7 +107,7 @@ pub fn motion_model_is_ancestor(c: &mut Criterion) {
     c.bench_function("MotionModel::is_ancestor", |b| {
         b.iter(|| {
             model.is_ancestor(
-                black_box(wheel_ids.get(0).unwrap()),
+                black_box(wheel_ids.first().unwrap()),
                 black_box(wheel_ids.get(1).unwrap()),
             )
         });
@@ -271,7 +271,7 @@ fn add_actuated_joint_to_model<'a>(
     model.add_actuated_chassis_element(
         name,
         dof,
-        parent_id.clone(),
+        *parent_id,
         position_relative_to_parent,
         orientation_relative_to_parent,
         mass,
@@ -352,7 +352,7 @@ fn add_steering_to_model<'a>(
 
     model.add_steering_element(
         name,
-        parent_id.clone(),
+        *parent_id,
         position_relative_to_parent,
         orientation_relative_to_parent,
         mass,
@@ -385,7 +385,7 @@ fn add_suspension_to_model(
     model.add_suspension_element(
         name,
         FrameDofType::PrismaticZ,
-        parent_id.clone(),
+        *parent_id,
         position_relative_to_parent,
         orientation_relative_to_parent,
         mass,
@@ -415,7 +415,7 @@ fn add_wheel_to_model<'a>(
 
     model.add_wheel(
         name,
-        parent_id.clone(),
+        *parent_id,
         position_relative_to_parent,
         orientation_relative_to_parent,
         mass,
@@ -452,8 +452,8 @@ fn extend_angular_actuator(hardware_actuator: &MockHardwareActuator) {
         ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
     );
 
-    let _ = hardware_actuator.sender.send(msg).unwrap();
-    let _ = hardware_actuator
+    hardware_actuator.sender.send(msg).unwrap();
+    hardware_actuator
         .update_sender
         .as_ref()
         .unwrap()
@@ -464,14 +464,14 @@ fn extend_angular_actuator(hardware_actuator: &MockHardwareActuator) {
 fn extend_linear_actuator(hardware_actuator: &MockHardwareActuator) {
     // Push the actuator out
     let angle_x_deg = 30.0;
-    let angle_x_rad = angle_x_deg * (PI / 180.0);
+    let _angle_x_rad = angle_x_deg * (PI / 180.0);
     let msg = (
         JointState::new(0.5, None, None, None),
         ActuatorAvailableRatesOfChange::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
     );
 
-    let _ = hardware_actuator.sender.send(msg).unwrap();
-    let _ = hardware_actuator
+    hardware_actuator.sender.send(msg).unwrap();
+    hardware_actuator
         .update_sender
         .as_ref()
         .unwrap()

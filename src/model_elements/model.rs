@@ -131,10 +131,8 @@ impl KinematicTree {
     ) -> Result<&FrameID, Error> {
         let element_id = element.id();
         let element_ref = &element;
-        if self.elements.contains_key(&element_id) {
-            return Err(Error::FrameElementAlreadyExists {
-                id: element_id.clone(),
-            });
+        if self.elements.contains_key(element_id) {
+            return Err(Error::FrameElementAlreadyExists { id: *element_id });
         }
 
         // Only the first element can not have a parent. All the other ones should have a parent
@@ -143,38 +141,32 @@ impl KinematicTree {
         let parent_id_ref = parent_id.as_ref();
         if parent_id != FrameID::none() {
             if !self.elements.contains_key(parent_id_ref) {
-                return Err(Error::MissingFrameElement {
-                    id: parent_id.clone(),
-                });
+                return Err(Error::MissingFrameElement { id: parent_id });
             }
 
-            let cloned_element_id = element_id.clone();
-            if !self.parent_of.contains_key(&cloned_element_id) {
-                let parent_id_to_store = parent_id.clone();
+            let cloned_element_id = element_id;
+            if !self.parent_of.contains_key(cloned_element_id) {
+                let parent_id_to_store = parent_id;
                 let isometry = Isometry3::from_parts(
                     position_relative_to_parent,
                     orientation_relative_to_parent,
                 );
 
                 self.parent_of
-                    .insert(cloned_element_id, (parent_id_to_store, isometry));
+                    .insert(*cloned_element_id, (parent_id_to_store, isometry));
 
                 // A parent node can never be a wheel
                 self.wheel_elements.remove(parent_id_ref);
             }
 
-            if !self.children_of.contains_key(&parent_id_ref) {
-                self.children_of.insert(parent_id.clone(), BTreeSet::new());
+            if !self.children_of.contains_key(parent_id_ref) {
+                self.children_of.insert(parent_id, BTreeSet::new());
             }
 
-            let child_id = element_id.clone();
+            let child_id = *element_id;
             let children = match self.children_of.get_mut(parent_id_ref) {
                 Some(c) => c,
-                None => {
-                    return Err(Error::MissingFrameElement {
-                        id: parent_id.clone(),
-                    })
-                }
+                None => return Err(Error::MissingFrameElement { id: parent_id }),
             };
 
             if !children.contains(&child_id) {
@@ -183,29 +175,26 @@ impl KinematicTree {
         } else {
             // There only should be one element with no parent ID. And by definition that should be
             // the first element that is added.
-            if self.elements.len() > 0 {
-                return Err(Error::InvalidFrameID {
-                    id: parent_id.clone(),
-                });
+            if !self.elements.is_empty() {
+                return Err(Error::InvalidFrameID { id: parent_id });
             }
         }
 
         // We assume the element is a wheel if:
         // - It is a leaf node, i.e. it doesn't have any children
         // - it has a revolute motion around the Y-axis
-        let has_children = self.children_of.contains_key(&element_id);
+        let has_children = self.children_of.contains_key(element_id);
         if !has_children && element_ref.degree_of_freedom_kind() == FrameDofType::RevoluteY {
-            self.wheel_elements.insert(element_id.clone());
+            self.wheel_elements.insert(*element_id);
         }
 
-        let key = element_id.clone();
+        let key = *element_id;
         self.elements.insert(key, element);
 
-        let result: &ReferenceFrame;
-        match self.elements.get(&key) {
-            Some(v) => result = v,
+        let result = match self.elements.get(&key) {
+            Some(v) => v,
             None => return Err(Error::MissingFrameElement { id: key }),
-        }
+        };
 
         // Finally return the index at which the element is stored.
         Ok(result.id())
@@ -230,9 +219,9 @@ impl KinematicTree {
             }
         }
 
-        return Err(Error::MissingFrameElement {
+        Err(Error::MissingFrameElement {
             id: FrameID::none(),
-        });
+        })
     }
 
     /// Returns an iterator that can be used to iterate over the children of the specified reference frame
@@ -246,7 +235,7 @@ impl KinematicTree {
     /// * [Error::InvalidFrameID] - Returned when there is no reference frame with ID 'id'
     fn get_children(&self, id: &FrameID) -> Result<impl Iterator<Item = &ReferenceFrame>, Error> {
         if !self.elements.contains_key(id) {
-            return Err(Error::InvalidFrameID { id: id.clone() });
+            return Err(Error::InvalidFrameID { id: *id });
         }
 
         if !self.children_of.contains_key(id) {
@@ -270,7 +259,7 @@ impl KinematicTree {
     /// * [Error::InvalidFrameID] - Returned when there is no reference frame with ID 'id'
     fn get_element(&self, id: &FrameID) -> Result<&ReferenceFrame, Error> {
         if !self.elements.contains_key(id) {
-            return Err(Error::InvalidFrameID { id: id.clone() });
+            return Err(Error::InvalidFrameID { id: *id });
         }
 
         Ok(self.get_element_unchecked(id))
@@ -310,8 +299,8 @@ impl KinematicTree {
         &self,
         id: &FrameID,
     ) -> Result<&Isometry3<f64>, Error> {
-        if !self.elements.contains_key(&id) {
-            return Err(Error::InvalidFrameID { id: id.clone() });
+        if !self.elements.contains_key(id) {
+            return Err(Error::InvalidFrameID { id: *id });
         }
 
         let (_, transform) = self.parent_of.get(id).unwrap();
@@ -330,15 +319,11 @@ impl KinematicTree {
     /// * [Error::MissingFrameElement] - Returned when the reference frame has no parent.
     fn get_parent(&self, child_id: &FrameID) -> Result<&ReferenceFrame, Error> {
         if !self.elements.contains_key(child_id) {
-            return Err(Error::InvalidFrameID {
-                id: child_id.clone(),
-            });
+            return Err(Error::InvalidFrameID { id: *child_id });
         }
 
         if !self.parent_of.contains_key(child_id) {
-            return Err(Error::MissingFrameElement {
-                id: child_id.clone(),
-            });
+            return Err(Error::MissingFrameElement { id: *child_id });
         }
 
         let parent_id_ref = self.parent_of[child_id].0.as_ref();
@@ -385,7 +370,7 @@ impl KinematicTree {
     /// * [Error::InvalidFrameID] - Returned when there is no reference frame with ID 'id'
     fn is_body(&self, id: &FrameID) -> Result<bool, Error> {
         if !self.elements.contains_key(id) {
-            return Err(Error::InvalidFrameID { id: id.clone() });
+            return Err(Error::InvalidFrameID { id: *id });
         }
 
         Ok(!self.parent_of.contains_key(id))
@@ -409,7 +394,7 @@ impl KinematicTree {
     /// * [Error::InvalidFrameID] - Returned when there is no reference frame with ID 'id'
     fn is_wheel(&self, id: &FrameID) -> Result<bool, Error> {
         if !self.elements.contains_key(id) {
-            return Err(Error::InvalidFrameID { id: id.clone() });
+            return Err(Error::InvalidFrameID { id: *id });
         }
 
         Ok(self.wheel_elements.contains(id))
@@ -510,21 +495,16 @@ impl MotionModel {
         actuator: Actuator,
     ) -> Result<FrameID, Error> {
         if !self.reference_frames.has_element(&parent_id) {
-            return Err(Error::MissingFrameElement {
-                id: parent_id.clone(),
-            });
+            return Err(Error::MissingFrameElement { id: parent_id });
         }
 
         if self.reference_frames.is_wheel(&parent_id)? {
-            return Err(Error::InvalidFrameID {
-                id: parent_id.clone(),
-            });
+            return Err(Error::InvalidFrameID { id: parent_id });
         }
 
         let reference_frame = ReferenceFrame::new(name.clone(), degree_of_freedom, true);
 
-        self.actuators
-            .insert(reference_frame.id().clone(), actuator);
+        self.actuators.insert(*reference_frame.id(), actuator);
 
         self.add_element_unchecked(
             reference_frame,
@@ -577,7 +557,7 @@ impl MotionModel {
     ) -> Result<FrameID, Error> {
         if !self.reference_frames.is_empty() {
             let body_id = match self.reference_frames.get_body_element() {
-                Ok(f) => f.id().clone(),
+                Ok(f) => *f.id(),
                 Err(_) => FrameID::none(),
             };
 
@@ -646,11 +626,11 @@ impl MotionModel {
             center_of_mass,
             moment_of_inertia,
             spatial_inertia,
-            id.clone(),
+            *id,
         );
-        self.chassis_elements.insert(id.clone(), element);
+        self.chassis_elements.insert(*id, element);
 
-        Ok(id.clone())
+        Ok(*id)
     }
 
     /// Adds the chassis element that represents a static joint for the robot.
@@ -691,15 +671,11 @@ impl MotionModel {
         spatial_inertia: Matrix6<f64>,
     ) -> Result<FrameID, Error> {
         if !self.reference_frames.has_element(&parent_id) {
-            return Err(Error::MissingFrameElement {
-                id: parent_id.clone(),
-            });
+            return Err(Error::MissingFrameElement { id: parent_id });
         }
 
         if self.reference_frames.is_wheel(&parent_id)? {
-            return Err(Error::InvalidFrameID {
-                id: parent_id.clone(),
-            });
+            return Err(Error::InvalidFrameID { id: parent_id });
         }
 
         let reference_frame = ReferenceFrame::new(name.clone(), FrameDofType::Static, false);
@@ -765,21 +741,17 @@ impl MotionModel {
         actuator: Actuator,
     ) -> Result<FrameID, Error> {
         if !self.reference_frames.has_element(&parent_id) {
-            return Err(Error::MissingFrameElement {
-                id: parent_id.clone(),
-            });
+            return Err(Error::MissingFrameElement { id: parent_id });
         }
 
         if self.reference_frames.is_wheel(&parent_id)? {
-            return Err(Error::InvalidFrameID {
-                id: parent_id.clone(),
-            });
+            return Err(Error::InvalidFrameID { id: parent_id });
         }
 
         // There should only be one steering element in the chain
         let mut element_in_chain = &parent_id;
         while !self.is_body(element_in_chain) {
-            if self.steering_frame_to_wheel.contains_key(&element_in_chain) {
+            if self.steering_frame_to_wheel.contains_key(element_in_chain) {
                 return Err(Error::MultipleSteeringFramesInChain { id: parent_id });
             }
 
@@ -788,11 +760,10 @@ impl MotionModel {
 
         let reference_frame = ReferenceFrame::new(name.clone(), FrameDofType::RevoluteZ, true);
 
-        self.actuators
-            .insert(reference_frame.id().clone(), actuator);
+        self.actuators.insert(*reference_frame.id(), actuator);
 
         self.steering_frame_to_wheel
-            .insert(reference_frame.id().clone(), FrameID::none());
+            .insert(*reference_frame.id(), FrameID::none());
 
         self.add_element_unchecked(
             reference_frame,
@@ -850,21 +821,17 @@ impl MotionModel {
         joint_constraint: JointConstraint,
     ) -> Result<FrameID, Error> {
         if !self.reference_frames.has_element(&parent_id) {
-            return Err(Error::MissingFrameElement {
-                id: parent_id.clone(),
-            });
+            return Err(Error::MissingFrameElement { id: parent_id });
         }
 
         if self.reference_frames.is_wheel(&parent_id)? {
-            return Err(Error::InvalidFrameID {
-                id: parent_id.clone(),
-            });
+            return Err(Error::InvalidFrameID { id: parent_id });
         }
 
         let reference_frame = ReferenceFrame::new(name.clone(), degree_of_freedom, false);
 
         self.joint_constraints
-            .insert(reference_frame.id().clone(), joint_constraint);
+            .insert(*reference_frame.id(), joint_constraint);
 
         self.add_element_unchecked(
             reference_frame,
@@ -926,23 +893,19 @@ impl MotionModel {
         actuator: Actuator,
     ) -> Result<FrameID, Error> {
         if !self.reference_frames.has_element(&parent_id) {
-            return Err(Error::MissingFrameElement {
-                id: parent_id.clone(),
-            });
+            return Err(Error::MissingFrameElement { id: parent_id });
         }
 
         if self.reference_frames.is_wheel(&parent_id)? {
-            return Err(Error::InvalidFrameID {
-                id: parent_id.clone(),
-            });
+            return Err(Error::InvalidFrameID { id: parent_id });
         }
 
         // There should exactly one steering element in the chain
         let mut element_in_chain = &parent_id;
         let mut steering_frame_id = FrameID::none();
         while !self.is_body(element_in_chain) {
-            if self.steering_frame_to_wheel.contains_key(&element_in_chain) {
-                steering_frame_id = element_in_chain.clone();
+            if self.steering_frame_to_wheel.contains_key(element_in_chain) {
+                steering_frame_id = *element_in_chain;
                 break;
             }
 
@@ -955,14 +918,13 @@ impl MotionModel {
 
         let reference_frame = ReferenceFrame::new(name.clone(), FrameDofType::RevoluteY, true);
 
-        self.actuators
-            .insert(reference_frame.id().clone(), actuator);
+        self.actuators.insert(*reference_frame.id(), actuator);
 
         self.steering_frame_to_wheel
-            .insert(steering_frame_id.clone(), reference_frame.id().clone());
+            .insert(steering_frame_id, *reference_frame.id());
 
         self.wheel_to_steering_frame
-            .insert(reference_frame.id().clone(), steering_frame_id.clone());
+            .insert(*reference_frame.id(), steering_frame_id);
 
         self.add_element_unchecked(
             reference_frame,
@@ -997,12 +959,8 @@ impl MotionModel {
     /// * [Error::MissingFrameElement] - Returned when the [ReferenceFrame] is not an actuated joint.
     pub fn get_actuator(&self, frame_id: &FrameID) -> Result<&Actuator, Error> {
         match self.actuators.get(frame_id) {
-            Some(a) => return Ok(a),
-            None => {
-                return Err(Error::MissingFrameElement {
-                    id: frame_id.clone(),
-                })
-            }
+            Some(a) => Ok(a),
+            None => Err(Error::MissingFrameElement { id: *frame_id }),
         }
     }
 
@@ -1033,12 +991,8 @@ impl MotionModel {
     /// * [Error::MissingFrameElement] - Returned when the [ReferenceFrame] is not part of the model.
     pub fn get_chassis_element(&self, frame_id: &FrameID) -> Result<&ChassisElement, Error> {
         match self.chassis_elements.get(frame_id) {
-            Some(c) => return Ok(c),
-            None => {
-                return Err(Error::MissingFrameElement {
-                    id: frame_id.clone(),
-                })
-            }
+            Some(c) => Ok(c),
+            None => Err(Error::MissingFrameElement { id: *frame_id }),
         }
     }
 
@@ -1054,9 +1008,7 @@ impl MotionModel {
     /// * [Error::MissingFrameElement] - Returned when the [ReferenceFrame] is not part of the model.
     pub fn get_children(&self, frame_id: &FrameID) -> Result<Vec<&FrameID>, Error> {
         if !self.reference_frames.has_element(frame_id) {
-            return Err(Error::MissingFrameElement {
-                id: frame_id.clone(),
-            });
+            return Err(Error::MissingFrameElement { id: *frame_id });
         }
 
         let child_ids: Vec<&FrameID> = self
@@ -1078,9 +1030,7 @@ impl MotionModel {
     /// * [Error::MissingFrameElement] - Returned when the [ReferenceFrame] is not part of the model.
     pub fn get_frame_degree_of_freedom(&self, frame_id: &FrameID) -> Result<FrameDofType, Error> {
         if !self.reference_frames.has_element(frame_id) {
-            return Err(Error::MissingFrameElement {
-                id: frame_id.clone(),
-            });
+            return Err(Error::MissingFrameElement { id: *frame_id });
         }
 
         let frame = self.reference_frames.get_element(frame_id)?;
@@ -1104,11 +1054,11 @@ impl MotionModel {
         to: &FrameID,
     ) -> Result<Matrix4<f64>, Error> {
         if !self.reference_frames.has_element(from) {
-            return Err(Error::MissingFrameElement { id: from.clone() });
+            return Err(Error::MissingFrameElement { id: *from });
         }
 
         if !self.reference_frames.has_element(to) {
-            return Err(Error::MissingFrameElement { id: to.clone() });
+            return Err(Error::MissingFrameElement { id: *to });
         }
 
         if from == to {
@@ -1129,8 +1079,8 @@ impl MotionModel {
         if !invert_result {
             // This really shouldn't happen because homogeneous transforms should be invertible. So now we're in trouble ....
             return Err(Error::FailedToComputeTransform {
-                from: self.get_body()?.clone(),
-                to: to.clone(),
+                from: *self.get_body()?,
+                to: *to,
             });
         }
 
@@ -1158,11 +1108,11 @@ impl MotionModel {
         to: &FrameID,
     ) -> Result<Matrix4<f64>, Error> {
         if !self.reference_frames.has_element(from) {
-            return Err(Error::MissingFrameElement { id: from.clone() });
+            return Err(Error::MissingFrameElement { id: *from });
         }
 
         if !self.reference_frames.has_element(to) {
-            return Err(Error::MissingFrameElement { id: to.clone() });
+            return Err(Error::MissingFrameElement { id: *to });
         }
 
         if from == to {
@@ -1202,7 +1152,7 @@ impl MotionModel {
                 } else {
                     // We are at the end of the chain (aka, we have reached the body) but we haven't
                     // reached the desired parent element. Something is wrong here.
-                    return Err(Error::MissingFrameElement { id: to.clone() });
+                    return Err(Error::MissingFrameElement { id: *to });
                 }
             } else {
                 parent_element = self.reference_frames.get_parent(child_element.id())?;
@@ -1247,7 +1197,7 @@ impl MotionModel {
     ) -> Result<Matrix4<f64>, Error> {
         if !self.reference_frames.has_element(starting_element) {
             return Err(Error::MissingFrameElement {
-                id: starting_element.clone(),
+                id: *starting_element,
             });
         }
 
@@ -1271,9 +1221,7 @@ impl MotionModel {
     /// * [Error::MissingFrameElement] - Returned when the [ReferenceFrame] is not part of the model
     pub fn get_parent(&self, frame_id: &FrameID) -> Result<&FrameID, Error> {
         if !self.reference_frames.has_element(frame_id) {
-            return Err(Error::MissingFrameElement {
-                id: frame_id.clone(),
-            });
+            return Err(Error::MissingFrameElement { id: *frame_id });
         }
 
         let parent = self.reference_frames.get_parent(frame_id)?;
@@ -1291,9 +1239,7 @@ impl MotionModel {
     /// /// * [Error::MissingFrameElement] - Returned when the [ReferenceFrame] is not part of the model
     pub fn get_reference_frame(&self, frame_id: &FrameID) -> Result<&ReferenceFrame, Error> {
         if !self.reference_frames.has_element(frame_id) {
-            return Err(Error::MissingFrameElement {
-                id: frame_id.clone(),
-            });
+            return Err(Error::MissingFrameElement { id: *frame_id });
         }
 
         self.reference_frames.get_element(frame_id)
@@ -1311,19 +1257,12 @@ impl MotionModel {
     /// * [Error::NoSteeringFramesInChain] - Returned when there is no steering frame attached to the wheel.
     pub fn get_steering_frame_for_wheel(&self, wheel_frame: &FrameID) -> Result<&FrameID, Error> {
         if !self.reference_frames.has_element(wheel_frame) {
-            return Err(Error::MissingFrameElement {
-                id: wheel_frame.clone(),
-            });
+            return Err(Error::MissingFrameElement { id: *wheel_frame });
         }
 
-        let id_ref: &FrameID;
-        match self.wheel_to_steering_frame.get(wheel_frame) {
-            Some(i) => id_ref = i,
-            None => {
-                return Err(Error::NoSteeringFramesInChain {
-                    id: wheel_frame.clone(),
-                })
-            }
+        let id_ref = match self.wheel_to_steering_frame.get(wheel_frame) {
+            Some(i) => i,
+            None => return Err(Error::NoSteeringFramesInChain { id: *wheel_frame }),
         };
 
         Ok(id_ref)
@@ -1402,7 +1341,7 @@ impl MotionModel {
             frame_id = parent;
         }
 
-        return false;
+        false
     }
 
     /// Returns a value indicating if the given [FrameID] points to the body frame.
@@ -1413,10 +1352,7 @@ impl MotionModel {
     ///
     /// * 'frame_id' - The [FrameID] of the joint.
     pub fn is_body(&self, frame_id: &FrameID) -> bool {
-        match self.reference_frames.is_body(frame_id) {
-            Ok(b) => b,
-            Err(_) => false,
-        }
+        self.reference_frames.is_body(frame_id).unwrap_or(false)
     }
 
     /// Returns a tuple that describes if the model is valid and if the model is not valid what the issues are.
@@ -1485,7 +1421,7 @@ impl MotionModel {
             }
         }
 
-        (result.len() == 0, result)
+        (result.is_empty(), result)
     }
 
     /// Returns a value indicating if the given [FrameID] points to the world frame
@@ -1630,5 +1566,11 @@ impl MotionModel {
         // [   0         0      1 ]
         let rotation = UnitQuaternion::from_axis_angle(&Vector3::z_axis(), distance_rotated);
         rotation * transform
+    }
+}
+
+impl Default for MotionModel {
+    fn default() -> Self {
+        Self::new()
     }
 }
