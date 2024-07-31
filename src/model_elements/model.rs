@@ -206,7 +206,7 @@ impl KinematicTree {
     ///
     /// * [Error::MissingFrameElement] - Returned when there is no body element stored
     ///   in the tree
-    fn get_body_element(&self) -> Result<&ReferenceFrame, Error> {
+    fn body_element(&self) -> Result<&ReferenceFrame, Error> {
         if self.elements.is_empty() {
             return Err(Error::MissingFrameElement {
                 id: FrameID::none(),
@@ -233,7 +233,7 @@ impl KinematicTree {
     /// ## Errors
     ///
     /// * [Error::InvalidFrameID] - Returned when there is no reference frame with ID 'id'
-    fn get_children(&self, id: &FrameID) -> Result<impl Iterator<Item = &ReferenceFrame>, Error> {
+    fn children_of(&self, id: &FrameID) -> Result<impl Iterator<Item = &ReferenceFrame>, Error> {
         if !self.elements.contains_key(id) {
             return Err(Error::InvalidFrameID { id: *id });
         }
@@ -257,7 +257,7 @@ impl KinematicTree {
     /// ## Errors
     ///
     /// * [Error::InvalidFrameID] - Returned when there is no reference frame with ID 'id'
-    fn get_element(&self, id: &FrameID) -> Result<&ReferenceFrame, Error> {
+    fn element(&self, id: &FrameID) -> Result<&ReferenceFrame, Error> {
         if !self.elements.contains_key(id) {
             return Err(Error::InvalidFrameID { id: *id });
         }
@@ -281,7 +281,7 @@ impl KinematicTree {
     /// Returns an iterator that iterates over all the reference frames in the tree.
     ///
     /// The order of iteration is not guaranteed.
-    fn get_elements(&self) -> impl Iterator<Item = &ReferenceFrame> {
+    fn elements(&self) -> impl Iterator<Item = &ReferenceFrame> {
         self.elements.values()
     }
 
@@ -295,10 +295,7 @@ impl KinematicTree {
     /// ## Errors
     ///
     /// * [Error::InvalidFrameID] - Returned when there is no reference frame with ID 'id'
-    pub fn get_homogeneous_transform_to_parent(
-        &self,
-        id: &FrameID,
-    ) -> Result<&Isometry3<f64>, Error> {
+    pub fn homogeneous_transform_to_parent(&self, id: &FrameID) -> Result<&Isometry3<f64>, Error> {
         if !self.elements.contains_key(id) {
             return Err(Error::InvalidFrameID { id: *id });
         }
@@ -317,7 +314,7 @@ impl KinematicTree {
     ///
     /// * [Error::InvalidFrameID] - Returned when there is no reference frame with ID 'id'
     /// * [Error::MissingFrameElement] - Returned when the reference frame has no parent.
-    fn get_parent(&self, child_id: &FrameID) -> Result<&ReferenceFrame, Error> {
+    fn parent_of(&self, child_id: &FrameID) -> Result<&ReferenceFrame, Error> {
         if !self.elements.contains_key(child_id) {
             return Err(Error::InvalidFrameID { id: *child_id });
         }
@@ -335,7 +332,7 @@ impl KinematicTree {
     /// ## Errors
     ///
     /// * [Error::MissingFrameElement] - Returned when the tree is empty
-    fn get_wheels(&self) -> Result<impl Iterator<Item = &ReferenceFrame>, Error> {
+    fn wheels(&self) -> Result<impl Iterator<Item = &ReferenceFrame>, Error> {
         if self.elements.is_empty() {
             return Err(Error::MissingFrameElement {
                 id: FrameID::none(),
@@ -592,7 +589,7 @@ impl MotionModel {
         physical_properties: ChassisElementPhysicalProperties,
     ) -> Result<FrameID, Error> {
         if !self.reference_frames.is_empty() {
-            let body_id = match self.reference_frames.get_body_element() {
+            let body_id = match self.reference_frames.body_element() {
                 Ok(f) => *f.id(),
                 Err(_) => FrameID::none(),
             };
@@ -776,7 +773,7 @@ impl MotionModel {
                 return Err(Error::MultipleSteeringFramesInChain { id: parent_id });
             }
 
-            element_in_chain = self.get_parent(element_in_chain)?;
+            element_in_chain = self.parent_of(element_in_chain)?;
         }
 
         let reference_frame = ReferenceFrame::new(name.clone(), FrameDofType::RevoluteZ, true);
@@ -918,7 +915,7 @@ impl MotionModel {
                 break;
             }
 
-            element_in_chain = self.get_parent(element_in_chain)?;
+            element_in_chain = self.parent_of(element_in_chain)?;
         }
 
         if steering_frame_id.is_none() {
@@ -963,7 +960,7 @@ impl MotionModel {
     /// ## Errors
     ///
     /// * [Error::MissingFrameElement] - Returned when the [ReferenceFrame] is not an actuated joint.
-    pub fn get_actuator(&self, frame_id: &FrameID) -> Result<&Actuator, Error> {
+    pub fn actuator_for(&self, frame_id: &FrameID) -> Result<&Actuator, Error> {
         match self.actuators.get(frame_id) {
             Some(a) => Ok(a),
             None => Err(Error::MissingFrameElement { id: *frame_id }),
@@ -975,14 +972,14 @@ impl MotionModel {
     /// ## Errors
     ///
     /// * [Error::MissingFrameElement] - Returned when there are no elements in the model.
-    pub fn get_body(&self) -> Result<&FrameID, Error> {
+    pub fn body(&self) -> Result<&FrameID, Error> {
         if self.reference_frames.is_empty() {
             return Err(Error::MissingFrameElement {
                 id: FrameID::none(),
             });
         }
 
-        let frame = self.reference_frames.get_body_element()?;
+        let frame = self.reference_frames.body_element()?;
         Ok(frame.id())
     }
 
@@ -995,7 +992,7 @@ impl MotionModel {
     /// ## Errors
     ///
     /// * [Error::MissingFrameElement] - Returned when the [ReferenceFrame] is not part of the model.
-    pub fn get_chassis_element(&self, frame_id: &FrameID) -> Result<&ChassisElement, Error> {
+    pub fn chassis_element(&self, frame_id: &FrameID) -> Result<&ChassisElement, Error> {
         match self.chassis_elements.get(frame_id) {
             Some(c) => Ok(c),
             None => Err(Error::MissingFrameElement { id: *frame_id }),
@@ -1012,14 +1009,14 @@ impl MotionModel {
     /// ## Errors
     ///
     /// * [Error::MissingFrameElement] - Returned when the [ReferenceFrame] is not part of the model.
-    pub fn get_children(&self, frame_id: &FrameID) -> Result<Vec<&FrameID>, Error> {
+    pub fn children_of(&self, frame_id: &FrameID) -> Result<Vec<&FrameID>, Error> {
         if !self.reference_frames.has_element(frame_id) {
             return Err(Error::MissingFrameElement { id: *frame_id });
         }
 
         let child_ids: Vec<&FrameID> = self
             .reference_frames
-            .get_children(frame_id)?
+            .children_of(frame_id)?
             .map(|e| e.id())
             .collect();
         Ok(child_ids)
@@ -1034,12 +1031,12 @@ impl MotionModel {
     /// ## Errors
     ///
     /// * [Error::MissingFrameElement] - Returned when the [ReferenceFrame] is not part of the model.
-    pub fn get_frame_degree_of_freedom(&self, frame_id: &FrameID) -> Result<FrameDofType, Error> {
+    pub fn frame_degree_of_freedom(&self, frame_id: &FrameID) -> Result<FrameDofType, Error> {
         if !self.reference_frames.has_element(frame_id) {
             return Err(Error::MissingFrameElement { id: *frame_id });
         }
 
-        let frame = self.reference_frames.get_element(frame_id)?;
+        let frame = self.reference_frames.element(frame_id)?;
         Ok(frame.degree_of_freedom_kind())
     }
 
@@ -1054,7 +1051,7 @@ impl MotionModel {
     ///
     /// ## Errors
     ///
-    pub fn get_homogeneous_transform_between_frames(
+    pub fn homogeneous_transform_between_frames(
         &self,
         from: &FrameID,
         to: &FrameID,
@@ -1073,19 +1070,19 @@ impl MotionModel {
 
         // If 'to' is an ancestor then we can just calculate the stack
         if self.is_ancestor(from, to) {
-            return self.get_homogeneous_transform_to_ancestor(from, to);
+            return self.homogeneous_transform_to_ancestor(from, to);
         }
 
         // 'to' is a sibbling. Calculate both stacks and invert the sibbling stack
-        let from_transform_to_body = self.get_homogeneous_transform_to_body(from)?;
-        let mut to_transform_to_body = self.get_homogeneous_transform_to_body(to)?;
+        let from_transform_to_body = self.homogeneous_transform_to_body(from)?;
+        let mut to_transform_to_body = self.homogeneous_transform_to_body(to)?;
 
         // Invert the to transform
         let invert_result = to_transform_to_body.try_inverse_mut();
         if !invert_result {
             // This really shouldn't happen because homogeneous transforms should be invertible. So now we're in trouble ....
             return Err(Error::FailedToComputeTransform {
-                from: *self.get_body()?,
+                from: *self.body()?,
                 to: *to,
             });
         }
@@ -1108,7 +1105,7 @@ impl MotionModel {
     /// ## Errors
     ///
     /// * [Error::MissingFrameElement] - Returned when the [ReferenceFrame] is not part of the model
-    pub fn get_homogeneous_transform_to_ancestor(
+    pub fn homogeneous_transform_to_ancestor(
         &self,
         from: &FrameID,
         to: &FrameID,
@@ -1126,14 +1123,14 @@ impl MotionModel {
         }
 
         let mut transform = Matrix4::<f64>::identity();
-        let mut parent_element = self.reference_frames.get_parent(from)?;
-        let mut child_element = self.reference_frames.get_element(from)?;
+        let mut parent_element = self.reference_frames.parent_of(from)?;
+        let mut child_element = self.reference_frames.element(from)?;
         while child_element.id() != to {
             let dof = child_element.degree_of_freedom_kind();
 
             let transform_result = self
                 .reference_frames
-                .get_homogeneous_transform_to_parent(child_element.id())?;
+                .homogeneous_transform_to_parent(child_element.id())?;
 
             let actuator_option = self.actuators.get(child_element.id());
             let current_transform = if actuator_option.is_some() {
@@ -1161,7 +1158,7 @@ impl MotionModel {
                     return Err(Error::MissingFrameElement { id: *to });
                 }
             } else {
-                parent_element = self.reference_frames.get_parent(child_element.id())?;
+                parent_element = self.reference_frames.parent_of(child_element.id())?;
             }
         }
 
@@ -1179,12 +1176,12 @@ impl MotionModel {
     /// ## Errors
     ///
     /// * [Error::MissingFrameElement] - Returned when the [ReferenceFrame] is not part of the model
-    pub fn get_homogeneous_transform_to_body(
+    pub fn homogeneous_transform_to_body(
         &self,
         starting_element: &FrameID,
     ) -> Result<Matrix4<f64>, Error> {
-        let body_frame = self.get_body()?;
-        self.get_homogeneous_transform_to_ancestor(starting_element, body_frame)
+        let body_frame = self.body()?;
+        self.homogeneous_transform_to_ancestor(starting_element, body_frame)
     }
 
     /// Returns the homogeneous transform matrix from the given reference frame to the
@@ -1197,7 +1194,7 @@ impl MotionModel {
     ///
     /// ## Errors
     ///
-    pub fn get_homogeneous_transform_to_parent(
+    pub fn homogeneous_transform_to_parent(
         &self,
         starting_element: &FrameID,
     ) -> Result<Matrix4<f64>, Error> {
@@ -1212,8 +1209,8 @@ impl MotionModel {
             return Ok(Matrix4::<f64>::identity());
         }
 
-        let parent = self.get_parent(starting_element)?;
-        self.get_homogeneous_transform_to_ancestor(starting_element, parent)
+        let parent = self.parent_of(starting_element)?;
+        self.homogeneous_transform_to_ancestor(starting_element, parent)
     }
 
     /// Returns the [FrameID] of the parent of the given element.
@@ -1225,12 +1222,12 @@ impl MotionModel {
     /// ## Errors
     ///
     /// * [Error::MissingFrameElement] - Returned when the [ReferenceFrame] is not part of the model
-    pub fn get_parent(&self, frame_id: &FrameID) -> Result<&FrameID, Error> {
+    pub fn parent_of(&self, frame_id: &FrameID) -> Result<&FrameID, Error> {
         if !self.reference_frames.has_element(frame_id) {
             return Err(Error::MissingFrameElement { id: *frame_id });
         }
 
-        let parent = self.reference_frames.get_parent(frame_id)?;
+        let parent = self.reference_frames.parent_of(frame_id)?;
         Ok(parent.id())
     }
 
@@ -1243,12 +1240,12 @@ impl MotionModel {
     /// ## Errors
     ///
     /// /// * [Error::MissingFrameElement] - Returned when the [ReferenceFrame] is not part of the model
-    pub fn get_reference_frame(&self, frame_id: &FrameID) -> Result<&ReferenceFrame, Error> {
+    pub fn reference_frame(&self, frame_id: &FrameID) -> Result<&ReferenceFrame, Error> {
         if !self.reference_frames.has_element(frame_id) {
             return Err(Error::MissingFrameElement { id: *frame_id });
         }
 
-        self.reference_frames.get_element(frame_id)
+        self.reference_frames.element(frame_id)
     }
 
     /// Returns the [FrameID] of the steering frame that is linked to the given wheel frame
@@ -1261,7 +1258,7 @@ impl MotionModel {
     ///
     /// * [Error::MissingFrameElement] - Returned when the [ReferenceFrame] is not part of the model.
     /// * [Error::NoSteeringFramesInChain] - Returned when there is no steering frame attached to the wheel.
-    pub fn get_steering_frame_for_wheel(&self, wheel_frame: &FrameID) -> Result<&FrameID, Error> {
+    pub fn steering_frame_for_wheel(&self, wheel_frame: &FrameID) -> Result<&FrameID, Error> {
         if !self.reference_frames.has_element(wheel_frame) {
             return Err(Error::MissingFrameElement { id: *wheel_frame });
         }
@@ -1275,12 +1272,8 @@ impl MotionModel {
     }
 
     /// Returns a list of [FrameID] of all the wheels
-    pub fn get_wheels(&self) -> Result<Vec<&FrameID>, Error> {
-        let list = self
-            .reference_frames
-            .get_wheels()?
-            .map(|f| f.id())
-            .collect();
+    pub fn wheels(&self) -> Result<Vec<&FrameID>, Error> {
+        let list = self.reference_frames.wheels()?.map(|f| f.id()).collect();
         Ok(list)
     }
 
@@ -1335,7 +1328,7 @@ impl MotionModel {
 
         let mut frame_id = from;
         while !self.is_body(frame_id) {
-            let parent = match self.get_parent(frame_id) {
+            let parent = match self.parent_of(frame_id) {
                 Ok(f) => f,
                 Err(_) => return false,
             };
@@ -1372,7 +1365,7 @@ impl MotionModel {
         let mut result: Vec<String> = vec![];
 
         // There should be at least two wheels
-        let wheels_result = self.get_wheels();
+        let wheels_result = self.wheels();
         if wheels_result.is_err() {
             result.push(String::from(
                 "Swerve model needs at least 2 wheel. Found 0 wheels.",
@@ -1390,7 +1383,7 @@ impl MotionModel {
 
         for w in wheels {
             // Each wheel rotates in the xz-plane
-            let wheel_dof_result = self.get_frame_degree_of_freedom(w);
+            let wheel_dof_result = self.frame_degree_of_freedom(w);
             if wheel_dof_result.is_err() {
                 result.push(format!("Swerve model expects wheels to rotate around the y-axis. Wheel {} has no degrees of freedom.", w))
             } else {
@@ -1410,7 +1403,7 @@ impl MotionModel {
             let steering_joint = steering_joint_option.unwrap();
 
             // Each steering joint has a z-rotation
-            let steering_joint_dof_result = self.get_frame_degree_of_freedom(steering_joint);
+            let steering_joint_dof_result = self.frame_degree_of_freedom(steering_joint);
             if steering_joint_dof_result.is_err() {
                 result.push(format!("Swerve model expects steering joints to rotate around the z-axis. Steering joint {} has no degrees of freedom.", steering_joint));
             } else {
@@ -1480,8 +1473,8 @@ impl MotionModel {
         actuator: &Actuator,
         transform: &Isometry3<f64>,
     ) -> Isometry3<f64> {
-        let distance_moved = match actuator.get_value() {
-            Ok(v) => v.get_position(),
+        let distance_moved = match actuator.value() {
+            Ok(v) => v.position(),
             Err(_) => 0.0,
         };
         let trans = Translation3::new(distance_moved, 0.0, 0.0);
@@ -1493,8 +1486,8 @@ impl MotionModel {
         actuator: &Actuator,
         transform: &Isometry3<f64>,
     ) -> Isometry3<f64> {
-        let distance_moved = match actuator.get_value() {
-            Ok(v) => v.get_position(),
+        let distance_moved = match actuator.value() {
+            Ok(v) => v.position(),
             Err(_) => 0.0,
         };
         let trans = Translation3::new(0.0, distance_moved, 0.0);
@@ -1506,8 +1499,8 @@ impl MotionModel {
         actuator: &Actuator,
         transform: &Isometry3<f64>,
     ) -> Isometry3<f64> {
-        let distance_moved = match actuator.get_value() {
-            Ok(v) => v.get_position(),
+        let distance_moved = match actuator.value() {
+            Ok(v) => v.position(),
             Err(_) => 0.0,
         };
 
@@ -1520,8 +1513,8 @@ impl MotionModel {
         actuator: &Actuator,
         transform: &Isometry3<f64>,
     ) -> Isometry3<f64> {
-        let distance_rotated = match actuator.get_value() {
-            Ok(v) => v.get_position(),
+        let distance_rotated = match actuator.value() {
+            Ok(v) => v.position(),
             Err(_) => 0.0,
         };
 
@@ -1540,8 +1533,8 @@ impl MotionModel {
         actuator: &Actuator,
         transform: &Isometry3<f64>,
     ) -> Isometry3<f64> {
-        let distance_rotated = match actuator.get_value() {
-            Ok(v) => v.get_position(),
+        let distance_rotated = match actuator.value() {
+            Ok(v) => v.position(),
             Err(_) => 0.0,
         };
 
@@ -1560,8 +1553,8 @@ impl MotionModel {
         actuator: &Actuator,
         transform: &Isometry3<f64>,
     ) -> Isometry3<f64> {
-        let distance_rotated = match actuator.get_value() {
-            Ok(v) => v.get_position(),
+        let distance_rotated = match actuator.value() {
+            Ok(v) => v.position(),
             Err(_) => 0.0,
         };
 

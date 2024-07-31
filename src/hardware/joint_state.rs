@@ -15,7 +15,7 @@ mod joint_state_tests;
 /// All values are assumed to be in the range of the [minimum, maximum] value
 /// for the joint. These minimum and maximum values are specified by the
 /// [JointStateRange].
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct JointState {
     /// The position of the joint.
     position: f64,
@@ -32,22 +32,22 @@ pub struct JointState {
 
 impl JointState {
     /// Returns the current acceleration of the joint.
-    pub fn get_acceleration(&self) -> &Option<f64> {
+    pub fn acceleration(&self) -> &Option<f64> {
         &self.acceleration
     }
 
     /// Returns the current jerk of the joint.
-    pub fn get_jerk(&self) -> &Option<f64> {
+    pub fn jerk(&self) -> &Option<f64> {
         &self.jerk
     }
 
     /// Returns the current position of the joint
-    pub fn get_position(&self) -> f64 {
+    pub fn position(&self) -> f64 {
         self.position
     }
 
     /// Returns the current velocity of the joint.
-    pub fn get_velocity(&self) -> &Option<f64> {
+    pub fn velocity(&self) -> &Option<f64> {
         &self.velocity
     }
 
@@ -76,7 +76,7 @@ impl JointState {
 
 /// Stores the maximum and minimum values for the [JointState] of an
 /// Sensor or Actuator.
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct JointStateRange {
     /// The minimum values of the actuator state.
     minimum: JointState,
@@ -87,43 +87,43 @@ pub struct JointStateRange {
 
 impl JointStateRange {
     /// Gets the maximum acceleration for the joint.
-    pub fn get_maximum_acceleration(&self) -> &Option<f64> {
-        self.maximum.get_acceleration()
+    pub fn maximum_acceleration(&self) -> &Option<f64> {
+        self.maximum.acceleration()
     }
 
     /// Gets the maximum jerk for the joint.
-    pub fn get_maximum_jerk(&self) -> &Option<f64> {
-        self.maximum.get_jerk()
+    pub fn maximum_jerk(&self) -> &Option<f64> {
+        self.maximum.jerk()
     }
 
     /// Gets the maximum position for the joint.
-    pub fn get_maximum_position(&self) -> f64 {
-        self.maximum.get_position()
+    pub fn maximum_position(&self) -> f64 {
+        self.maximum.position()
     }
 
     /// Gets the maximum velocity for the joint.
-    pub fn get_maximum_velocity(&self) -> &Option<f64> {
-        self.maximum.get_velocity()
+    pub fn maximum_velocity(&self) -> &Option<f64> {
+        self.maximum.velocity()
     }
 
     /// Gets the minimum acceleration for the joint.
-    pub fn get_minimum_acceleration(&self) -> &Option<f64> {
-        self.minimum.get_acceleration()
+    pub fn minimum_acceleration(&self) -> &Option<f64> {
+        self.minimum.acceleration()
     }
 
     /// Gets the minimum jerk for the joint.
-    pub fn get_minimum_jerk(&self) -> &Option<f64> {
-        self.minimum.get_jerk()
+    pub fn minimum_jerk(&self) -> &Option<f64> {
+        self.minimum.jerk()
     }
 
     /// Gets the minimum position for the joint.
-    pub fn get_minimum_position(&self) -> f64 {
-        self.minimum.get_position()
+    pub fn minimum_position(&self) -> f64 {
+        self.minimum.position()
     }
 
     /// Gets the minimum velocity for the joint.
-    pub fn get_minimum_velocity(&self) -> &Option<f64> {
-        self.minimum.get_velocity()
+    pub fn minimum_velocity(&self) -> &Option<f64> {
+        self.minimum.velocity()
     }
 
     /// Creates a new [JointStateRange] with the given minimum and maximum

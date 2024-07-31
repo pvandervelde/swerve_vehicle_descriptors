@@ -70,17 +70,17 @@
 //! }
 //!
 //! impl HardwareActuator for MockHardwareActuator {
-//!     fn get_actuator_motion_type(&self) -> NumberSpaceType {
+//!     fn actuator_motion_type(&self) -> NumberSpaceType {
 //!         NumberSpaceType::LinearUnlimited
 //!     }
 //!
-//!     fn get_current_state_receiver(
+//!     fn current_state_receiver(
 //!         &self,
 //!     ) -> Result<Receiver<(JointState, ActuatorAvailableRatesOfChange)>, Error> {
 //!         Ok(self.receiver.clone())
 //!     }
 //!
-//!     fn get_command_sender(&self) -> Result<Sender<JointState>, Error> {
+//!     fn command_sender(&self) -> Result<Sender<JointState>, Error> {
 //!         Ok(self.command_sender.clone())
 //!     }
 //!
@@ -89,7 +89,7 @@
 //!         self.update_sender = Some(sender);
 //!     }
 //!
-//!     fn get_actuator_range(&self) -> JointStateRange {
+//!     fn actuator_range(&self) -> JointStateRange {
 //!         todo!()
 //!     }
 //! }

@@ -64,10 +64,10 @@ fn when_adding_an_single_element_with_no_parent_to_a_kinematic_tree_it_should_be
         };
     }
 
-    let element_ref = tree.get_element(&element_id).unwrap();
+    let element_ref = tree.element(&element_id).unwrap();
     assert_eq!(element_ref.name(), name);
 
-    let body_ref = tree.get_body_element().unwrap();
+    let body_ref = tree.body_element().unwrap();
 
     assert_eq!(body_ref.name(), name);
 }
@@ -124,7 +124,7 @@ fn when_adding_an_multiple_elements_to_a_kinematic_tree_it_should_only_have_one_
     }
 
     let imtree = &tree;
-    let coll = imtree.get_elements().collect::<Vec<&ReferenceFrame>>();
+    let coll = imtree.elements().collect::<Vec<&ReferenceFrame>>();
     assert_eq!(2, coll.len());
 
     assert!(coll.iter().any(|e| *e.id() == first_id));
@@ -247,14 +247,14 @@ fn when_adding_an_element_to_a_kinematic_tree_it_should_only_be_a_wheel_in_a_spe
     }
 
     let imtree = &tree;
-    let coll = imtree.get_elements().collect::<Vec<&ReferenceFrame>>();
+    let coll = imtree.elements().collect::<Vec<&ReferenceFrame>>();
     assert_eq!(3, coll.len());
 
     assert!(!imtree.is_wheel(&first_id).unwrap());
     assert!(!imtree.is_wheel(&second_id).unwrap());
     assert!(imtree.is_wheel(&third_id).unwrap());
 
-    let wheels: Vec<&ReferenceFrame> = imtree.get_wheels().unwrap().collect();
+    let wheels: Vec<&ReferenceFrame> = imtree.wheels().unwrap().collect();
 
     assert_eq!(1, wheels.len());
     assert_eq!(&third_id, wheels[0].id());
@@ -340,7 +340,7 @@ fn when_adding_a_child_to_an_element_in_a_kinematic_tree_it_should_not_be_a_whee
         assert!(!tree.is_wheel(&first_id).unwrap());
         assert!(tree.is_wheel(&second_id).unwrap());
 
-        let wheels = tree.get_wheels().unwrap();
+        let wheels = tree.wheels().unwrap();
         for elt in wheels {
             let id_ref = elt.id();
             if id_ref != &second_id {
@@ -370,7 +370,7 @@ fn when_adding_a_child_to_an_element_in_a_kinematic_tree_it_should_not_be_a_whee
         assert!(!tree.is_wheel(&second_id).unwrap());
         assert!(tree.is_wheel(&third_id).unwrap());
 
-        let wheels = tree.get_wheels().unwrap();
+        let wheels = tree.wheels().unwrap();
         for elt in wheels {
             let id_ref = elt.id();
             if id_ref != &third_id {
@@ -548,7 +548,7 @@ fn when_adding_leaf_elements_to_a_kinematic_tree_it_should_be_multiple_wheels() 
     }
 
     let imtree = &tree;
-    let coll = imtree.get_elements().collect::<Vec<&ReferenceFrame>>();
+    let coll = imtree.elements().collect::<Vec<&ReferenceFrame>>();
     assert_eq!(5, coll.len());
 
     assert!(!imtree.is_wheel(&body_id).unwrap());
@@ -557,7 +557,7 @@ fn when_adding_leaf_elements_to_a_kinematic_tree_it_should_be_multiple_wheels() 
     assert!(imtree.is_wheel(&third_wheel_id).unwrap());
     assert!(imtree.is_wheel(&fourth_wheel_id).unwrap());
 
-    let wheels: Vec<&ReferenceFrame> = imtree.get_wheels().unwrap().collect();
+    let wheels: Vec<&ReferenceFrame> = imtree.wheels().unwrap().collect();
 
     assert_eq!(4, wheels.len());
     assert_eq!(4, imtree.number_of_wheels());
@@ -566,7 +566,7 @@ fn when_adding_leaf_elements_to_a_kinematic_tree_it_should_be_multiple_wheels() 
 #[test]
 fn when_getting_the_body_with_no_frame_elements_it_should_error() {
     let tree = KinematicTree::new();
-    match tree.get_body_element() {
+    match tree.body_element() {
         Ok(_) => assert!(
             false,
             "Retrieved a body element when no elements were present in the tree."
@@ -653,7 +653,7 @@ fn when_getting_the_children_it_should_return_all_the_directly_connected_element
         };
     }
 
-    match tree.get_children(&first_id) {
+    match tree.children_of(&first_id) {
         Err(e) => assert!(
             false,
             "Got an error retrieving the children, but should not have. Error: {}.",
@@ -743,7 +743,7 @@ fn when_getting_the_children_with_invalid_parent_it_should_error() {
         };
     }
 
-    match tree.get_children(&second_id) {
+    match tree.children_of(&second_id) {
         Err(_) => assert!(false),
         Ok(mut i) => {
             assert!(!i.any(|_e| true));
@@ -825,7 +825,7 @@ fn when_getting_the_children_with_no_parent_it_should_error() {
         };
     }
 
-    match tree.get_children(&FrameID::none()) {
+    match tree.children_of(&FrameID::none()) {
         Err(e) => assert!(
             e == Error::InvalidFrameID {
                 id: FrameID::none()
@@ -917,7 +917,7 @@ fn when_getting_the_parent_it_should_return_the_correct_element() {
     }
 
     let imtree = &tree;
-    match imtree.get_parent(&second_id) {
+    match imtree.parent_of(&second_id) {
         Err(e) => assert!(
             false,
             "Got an error retrieving the children, but should not have. Error was: {}",
@@ -928,7 +928,7 @@ fn when_getting_the_parent_it_should_return_the_correct_element() {
         }
     };
 
-    match imtree.get_parent(&third_id) {
+    match imtree.parent_of(&third_id) {
         Err(e) => assert!(
             false,
             "Got an error retrieving the children, but should not have. Error was: {}",
@@ -1015,7 +1015,7 @@ fn when_getting_the_parent_with_invalid_frame_elements_it_should_error() {
 
     let imtree = &tree;
     let unknown_id = FrameID::new();
-    match imtree.get_parent(&unknown_id) {
+    match imtree.parent_of(&unknown_id) {
         Err(e) => assert_eq!(e, Error::InvalidFrameID { id: unknown_id }),
         Ok(_) => assert!(
             false,
@@ -1028,7 +1028,7 @@ fn when_getting_the_parent_with_invalid_frame_elements_it_should_error() {
 fn when_getting_the_parent_with_no_frame_elements_it_should_error() {
     let tree = KinematicTree::new();
     let child_id = FrameID::new();
-    match tree.get_parent(&child_id) {
+    match tree.parent_of(&child_id) {
         Ok(_) => assert!(
             false,
             "Expected the test to produce an error, but it didn't."
@@ -1040,7 +1040,7 @@ fn when_getting_the_parent_with_no_frame_elements_it_should_error() {
 #[test]
 fn when_getting_the_wheels_with_no_frame_elements_it_should_error() {
     let tree = KinematicTree::new();
-    match tree.get_wheels() {
+    match tree.wheels() {
         Ok(_) => assert!(
             false,
             "Expected the test to produce an error, but it didn't."
@@ -1150,17 +1150,17 @@ struct MockHardwareActuator {
 }
 
 impl HardwareActuator for MockHardwareActuator {
-    fn get_actuator_motion_type(&self) -> NumberSpaceType {
+    fn actuator_motion_type(&self) -> NumberSpaceType {
         NumberSpaceType::LinearUnlimited
     }
 
-    fn get_current_state_receiver(
+    fn current_state_receiver(
         &self,
     ) -> Result<Receiver<(JointState, ActuatorAvailableRatesOfChange)>, Error> {
         Ok(self.receiver.clone())
     }
 
-    fn get_command_sender(&self) -> Result<Sender<JointState>, Error> {
+    fn command_sender(&self) -> Result<Sender<JointState>, Error> {
         Ok(self.command_sender.clone())
     }
 
@@ -1169,7 +1169,7 @@ impl HardwareActuator for MockHardwareActuator {
         self.update_sender = Some(sender);
     }
 
-    fn get_actuator_range(&self) -> crate::hardware::joint_state::JointStateRange {
+    fn actuator_range(&self) -> crate::hardware::joint_state::JointStateRange {
         todo!()
     }
 }
@@ -1393,13 +1393,13 @@ fn when_adding_actuated_chassis_element_it_should_store_the_element() {
     let frame_id = result.unwrap();
     assert!(!frame_id.is_none());
 
-    let degree_of_freedom_result = model.get_frame_degree_of_freedom(&frame_id);
+    let degree_of_freedom_result = model.frame_degree_of_freedom(&frame_id);
     assert!(degree_of_freedom_result.is_ok());
 
     let dof = degree_of_freedom_result.unwrap();
     assert_eq!(FrameDofType::PrismaticX, dof);
 
-    let frame_result = model.get_reference_frame(&frame_id);
+    let frame_result = model.reference_frame(&frame_id);
     assert!(frame_result.is_ok());
 
     let frame = frame_result.unwrap();
@@ -1407,13 +1407,13 @@ fn when_adding_actuated_chassis_element_it_should_store_the_element() {
     assert!(frame.is_actuated());
     assert!(model.is_actuated(&frame_id));
 
-    let chassis_result = model.get_chassis_element(&frame_id);
+    let chassis_result = model.chassis_element(&frame_id);
     assert!(chassis_result.is_ok());
 
     let chassis = chassis_result.unwrap();
     assert_eq!(name, chassis.name());
 
-    let actuator_result = model.get_actuator(&frame_id);
+    let actuator_result = model.actuator_for(&frame_id);
     assert!(actuator_result.is_ok());
 }
 
@@ -1620,19 +1620,19 @@ fn when_adding_body_it_should_store_the_element() {
     let body_id = result.unwrap();
     assert!(!body_id.is_none());
 
-    let body_result = model.get_body();
+    let body_result = model.body();
     assert!(body_result.is_ok());
 
     let id = body_result.unwrap();
     assert_eq!(body_id, *id);
 
-    let degree_of_freedom_result = model.get_frame_degree_of_freedom(id);
+    let degree_of_freedom_result = model.frame_degree_of_freedom(id);
     assert!(degree_of_freedom_result.is_ok());
 
     let dof = degree_of_freedom_result.unwrap();
     assert_eq!(FrameDofType::Static, dof);
 
-    let frame_result = model.get_reference_frame(id);
+    let frame_result = model.reference_frame(id);
     assert!(frame_result.is_ok());
 
     let frame = frame_result.unwrap();
@@ -1640,7 +1640,7 @@ fn when_adding_body_it_should_store_the_element() {
     assert!(!frame.is_actuated());
     assert!(!model.is_actuated(id));
 
-    let chassis_result = model.get_chassis_element(id);
+    let chassis_result = model.chassis_element(id);
     assert!(chassis_result.is_ok());
 
     let chassis = chassis_result.unwrap();
@@ -1691,13 +1691,13 @@ fn when_adding_static_chassis_element_it_should_store_the_element() {
     let frame_id = result.unwrap();
     assert!(!frame_id.is_none());
 
-    let degree_of_freedom_result = model.get_frame_degree_of_freedom(&frame_id);
+    let degree_of_freedom_result = model.frame_degree_of_freedom(&frame_id);
     assert!(degree_of_freedom_result.is_ok());
 
     let dof = degree_of_freedom_result.unwrap();
     assert_eq!(FrameDofType::Static, dof);
 
-    let frame_result = model.get_reference_frame(&frame_id);
+    let frame_result = model.reference_frame(&frame_id);
     assert!(frame_result.is_ok());
 
     let frame = frame_result.unwrap();
@@ -1705,7 +1705,7 @@ fn when_adding_static_chassis_element_it_should_store_the_element() {
     assert!(!frame.is_actuated());
     assert!(!model.is_actuated(&frame_id));
 
-    let chassis_result = model.get_chassis_element(&frame_id);
+    let chassis_result = model.chassis_element(&frame_id);
     assert!(chassis_result.is_ok());
 
     let chassis = chassis_result.unwrap();
@@ -1888,13 +1888,13 @@ fn when_adding_steering_element_it_should_store_the_element() {
     let frame_id = result.unwrap();
     assert!(!frame_id.is_none());
 
-    let degree_of_freedom_result = model.get_frame_degree_of_freedom(&frame_id);
+    let degree_of_freedom_result = model.frame_degree_of_freedom(&frame_id);
     assert!(degree_of_freedom_result.is_ok());
 
     let dof = degree_of_freedom_result.unwrap();
     assert_eq!(FrameDofType::RevoluteZ, dof);
 
-    let frame_result = model.get_reference_frame(&frame_id);
+    let frame_result = model.reference_frame(&frame_id);
     assert!(frame_result.is_ok());
 
     let frame = frame_result.unwrap();
@@ -1902,7 +1902,7 @@ fn when_adding_steering_element_it_should_store_the_element() {
     assert!(frame.is_actuated());
     assert!(model.is_actuated(&frame_id));
 
-    let chassis_result = model.get_chassis_element(&frame_id);
+    let chassis_result = model.chassis_element(&frame_id);
     assert!(chassis_result.is_ok());
 
     let chassis = chassis_result.unwrap();
@@ -2182,13 +2182,13 @@ fn when_adding_suspension_element_it_should_store_the_element() {
     let frame_id = result.unwrap();
     assert!(!frame_id.is_none());
 
-    let degree_of_freedom_result = model.get_frame_degree_of_freedom(&frame_id);
+    let degree_of_freedom_result = model.frame_degree_of_freedom(&frame_id);
     assert!(degree_of_freedom_result.is_ok());
 
     let dof = degree_of_freedom_result.unwrap();
     assert_eq!(FrameDofType::PrismaticX, dof);
 
-    let frame_result = model.get_reference_frame(&frame_id);
+    let frame_result = model.reference_frame(&frame_id);
     assert!(frame_result.is_ok());
 
     let frame = frame_result.unwrap();
@@ -2198,7 +2198,7 @@ fn when_adding_suspension_element_it_should_store_the_element() {
 
     assert_eq!(1, model.number_of_joint_constraints());
 
-    let chassis_result = model.get_chassis_element(&frame_id);
+    let chassis_result = model.chassis_element(&frame_id);
     assert!(chassis_result.is_ok());
 
     let chassis = chassis_result.unwrap();
@@ -2267,13 +2267,13 @@ fn when_adding_suspension_elements_multiple_times_it_should_store_the_elements()
     let frame_id1 = result1.unwrap();
     assert!(!frame_id1.is_none());
 
-    let degree_of_freedom_result1 = model.get_frame_degree_of_freedom(&frame_id1);
+    let degree_of_freedom_result1 = model.frame_degree_of_freedom(&frame_id1);
     assert!(degree_of_freedom_result1.is_ok());
 
     let dof1 = degree_of_freedom_result1.unwrap();
     assert_eq!(FrameDofType::PrismaticX, dof1);
 
-    let frame_result1 = model.get_reference_frame(&frame_id1);
+    let frame_result1 = model.reference_frame(&frame_id1);
     assert!(frame_result1.is_ok());
 
     let frame1 = frame_result1.unwrap();
@@ -2281,7 +2281,7 @@ fn when_adding_suspension_elements_multiple_times_it_should_store_the_elements()
     assert!(!frame1.is_actuated());
     assert!(!model.is_actuated(&frame_id1));
 
-    let chassis_result1 = model.get_chassis_element(&frame_id1);
+    let chassis_result1 = model.chassis_element(&frame_id1);
     assert!(chassis_result1.is_ok());
 
     let chassis1 = chassis_result1.unwrap();
@@ -2292,13 +2292,13 @@ fn when_adding_suspension_elements_multiple_times_it_should_store_the_elements()
     let frame_id2 = result2.unwrap();
     assert!(!frame_id2.is_none());
 
-    let degree_of_freedom_result2 = model.get_frame_degree_of_freedom(&frame_id2);
+    let degree_of_freedom_result2 = model.frame_degree_of_freedom(&frame_id2);
     assert!(degree_of_freedom_result2.is_ok());
 
     let dof2 = degree_of_freedom_result2.unwrap();
     assert_eq!(FrameDofType::PrismaticX, dof2);
 
-    let frame_result2 = model.get_reference_frame(&frame_id2);
+    let frame_result2 = model.reference_frame(&frame_id2);
     assert!(frame_result2.is_ok());
 
     let frame2 = frame_result2.unwrap();
@@ -2306,7 +2306,7 @@ fn when_adding_suspension_elements_multiple_times_it_should_store_the_elements()
     assert!(!frame2.is_actuated());
     assert!(!model.is_actuated(&frame_id2));
 
-    let chassis_result2 = model.get_chassis_element(&frame_id2);
+    let chassis_result2 = model.chassis_element(&frame_id2);
     assert!(chassis_result2.is_ok());
 
     let chassis2 = chassis_result2.unwrap();
@@ -2524,13 +2524,13 @@ fn when_adding_wheel_element_it_should_store_the_element() {
     let frame_id = result.unwrap();
     assert!(!frame_id.is_none());
 
-    let degree_of_freedom_result = model.get_frame_degree_of_freedom(&frame_id);
+    let degree_of_freedom_result = model.frame_degree_of_freedom(&frame_id);
     assert!(degree_of_freedom_result.is_ok());
 
     let dof = degree_of_freedom_result.unwrap();
     assert_eq!(FrameDofType::RevoluteY, dof);
 
-    let frame_result = model.get_reference_frame(&frame_id);
+    let frame_result = model.reference_frame(&frame_id);
     assert!(frame_result.is_ok());
 
     let frame = frame_result.unwrap();
@@ -2538,20 +2538,20 @@ fn when_adding_wheel_element_it_should_store_the_element() {
     assert!(frame.is_actuated());
     assert!(model.is_actuated(&frame_id));
 
-    let chassis_result = model.get_chassis_element(&frame_id);
+    let chassis_result = model.chassis_element(&frame_id);
     assert!(chassis_result.is_ok());
 
     let chassis = chassis_result.unwrap();
     assert_eq!(name, chassis.name());
 
-    let wheels_results = model.get_wheels();
+    let wheels_results = model.wheels();
     assert!(wheels_results.is_ok());
 
     let wheels = wheels_results.unwrap();
     assert!(wheels.len() == 1);
     assert_eq!(frame_id, *wheels[0]);
 
-    let steering_result = model.get_steering_frame_for_wheel(&frame_id);
+    let steering_result = model.steering_frame_for_wheel(&frame_id);
     assert!(steering_result.is_ok());
 
     let steering_from_wheel = steering_result.unwrap();
@@ -3020,7 +3020,7 @@ fn when_getting_actuator_with_non_existing_element_it_should_error() {
     let model = MotionModel::new();
 
     let non_existing_id = FrameID::new();
-    let actuator_result = model.get_actuator(&non_existing_id);
+    let actuator_result = model.actuator_for(&non_existing_id);
     assert!(actuator_result.is_err());
 }
 
@@ -3028,7 +3028,7 @@ fn when_getting_actuator_with_non_existing_element_it_should_error() {
 fn when_getting_body_without_elements_it_should_error() {
     let model = MotionModel::new();
 
-    let result = model.get_body();
+    let result = model.body();
     assert!(result.is_err());
 }
 
@@ -3037,7 +3037,7 @@ fn when_getting_chassis_element_with_non_existing_element_it_should_error() {
     let model = MotionModel::new();
 
     let non_existing_id = FrameID::new();
-    let actuator_result = model.get_chassis_element(&non_existing_id);
+    let actuator_result = model.chassis_element(&non_existing_id);
     assert!(actuator_result.is_err());
 }
 
@@ -3126,7 +3126,7 @@ fn when_getting_children_it_should_return_the_children() {
     let wheel_count = model.number_of_wheels();
     assert_eq!(2, wheel_count);
 
-    let result = model.get_children(&body_id);
+    let result = model.children_of(&body_id);
     assert!(result.is_ok());
 
     let children = result.unwrap();
@@ -3143,7 +3143,7 @@ fn when_getting_children_with_invalid_parent_it_should_error() {
     let _ = add_suspension_to_model(&mut model, &body_id, DriveModulePosition::LeftFront).unwrap();
 
     let invalid_id = FrameID::new();
-    let result = model.get_children(&invalid_id);
+    let result = model.children_of(&invalid_id);
 
     assert!(result.is_err());
 }
@@ -3154,7 +3154,7 @@ fn when_getting_frame_degree_of_freedom_with_invalid_frame_it_should_error() {
     let _ = add_body_to_model(&mut model).unwrap();
 
     let invalid_id = FrameID::new();
-    let result = model.get_frame_degree_of_freedom(&invalid_id);
+    let result = model.frame_degree_of_freedom(&invalid_id);
 
     assert!(result.is_err());
 }
@@ -3233,7 +3233,7 @@ fn when_getting_homogeneous_transform_to_body_with_one_element_and_motion_it_sho
     // Allow some time to ensure the task is not processed
     std::thread::sleep(Duration::from_millis(20));
 
-    let actuator_to_body = model.get_homogeneous_transform_to_body(&id);
+    let actuator_to_body = model.homogeneous_transform_to_body(&id);
     assert!(actuator_to_body.is_ok());
 
     let actuator_to_body_matrix = actuator_to_body.unwrap();
@@ -3292,7 +3292,7 @@ fn when_getting_homogeneous_transform_to_body_with_one_element_and_motion_it_sho
     // Allow some time to ensure the task is not processed
     std::thread::sleep(Duration::from_millis(20));
 
-    let actuator_to_body = model.get_homogeneous_transform_to_body(&id);
+    let actuator_to_body = model.homogeneous_transform_to_body(&id);
     assert!(actuator_to_body.is_ok());
 
     let actuator_to_body_matrix = actuator_to_body.unwrap();
@@ -3348,7 +3348,7 @@ fn when_getting_homogeneous_transform_to_body_with_one_element_and_no_motion_it_
 
     let expected = homogenous_suspension_to_body;
 
-    let suspension_to_body = model.get_homogeneous_transform_to_body(&suspension_id_leg1);
+    let suspension_to_body = model.homogeneous_transform_to_body(&suspension_id_leg1);
     assert!(suspension_to_body.is_ok());
 
     let wheel_to_body_matrix = suspension_to_body.unwrap();
@@ -3429,7 +3429,7 @@ fn when_getting_homogeneous_transform_to_body_with_multiple_elements_and_no_moti
 
     let expected = joint_1_to_body_matrix * joint_2_to_joint_1_matrix;
 
-    let joint_2_to_body = model.get_homogeneous_transform_to_body(&id_joint_2);
+    let joint_2_to_body = model.homogeneous_transform_to_body(&id_joint_2);
     assert!(joint_2_to_body.is_ok());
     let joint_2_to_body_matrix = joint_2_to_body.unwrap();
 
@@ -3578,7 +3578,7 @@ fn when_getting_homogeneous_transform_to_body_with_primatic_x_and_prismatic_y_mo
     // Allow some time to ensure the task is not processed
     std::thread::sleep(Duration::from_millis(20));
 
-    let joint_2_to_body = model.get_homogeneous_transform_to_body(&id_joint_2);
+    let joint_2_to_body = model.homogeneous_transform_to_body(&id_joint_2);
     assert!(joint_2_to_body.is_ok());
     let joint_2_to_body_matrix = joint_2_to_body.unwrap();
 
@@ -3731,7 +3731,7 @@ fn when_getting_homogeneous_transform_to_body_with_primatic_x_and_prismatic_z_mo
     // Allow some time to ensure the task is not processed
     std::thread::sleep(Duration::from_millis(20));
 
-    let joint_2_to_body = model.get_homogeneous_transform_to_body(&id_joint_2);
+    let joint_2_to_body = model.homogeneous_transform_to_body(&id_joint_2);
     assert!(joint_2_to_body.is_ok());
     let joint_2_to_body_matrix = joint_2_to_body.unwrap();
 
@@ -3884,7 +3884,7 @@ fn when_getting_homogeneous_transform_to_body_with_primatic_y_and_prismatic_z_mo
     // Allow some time to ensure the task is not processed
     std::thread::sleep(Duration::from_millis(20));
 
-    let joint_2_to_body = model.get_homogeneous_transform_to_body(&id_joint_2);
+    let joint_2_to_body = model.homogeneous_transform_to_body(&id_joint_2);
     assert!(joint_2_to_body.is_ok());
     let joint_2_to_body_matrix = joint_2_to_body.unwrap();
 
@@ -4047,8 +4047,7 @@ fn when_getting_homogeneous_transform_to_frame_across_wheel_chains_and_motion_it
     // Allow some time to ensure the task is not processed
     std::thread::sleep(Duration::from_millis(20));
 
-    let joint_2_to_joint_1 =
-        model.get_homogeneous_transform_between_frames(&id_joint_2, &id_joint_1);
+    let joint_2_to_joint_1 = model.homogeneous_transform_between_frames(&id_joint_2, &id_joint_1);
     assert!(joint_2_to_joint_1.is_ok());
     let joint_2_to_joint_1_matrix = joint_2_to_joint_1.unwrap();
 
@@ -4125,8 +4124,7 @@ fn when_getting_homogeneous_transform_to_frame_across_wheel_chains_and_no_motion
     )
     .unwrap();
 
-    let joint_2_to_joint_1 =
-        model.get_homogeneous_transform_between_frames(&id_joint_2, &id_joint_1);
+    let joint_2_to_joint_1 = model.homogeneous_transform_between_frames(&id_joint_2, &id_joint_1);
     assert!(joint_2_to_joint_1.is_ok());
 
     let joint_2_to_joint_1_matrix = joint_2_to_joint_1.unwrap();
@@ -4231,7 +4229,7 @@ fn when_getting_homogeneous_transform_to_parent_with_no_motion_it_should_return_
     let wheel_id_leg1 = add_wheel_to_model(&mut model, &steering_id_leg1, wheel_actuator).unwrap();
 
     // wheel to steering
-    let wheel_to_steering = model.get_homogeneous_transform_to_parent(&wheel_id_leg1);
+    let wheel_to_steering = model.homogeneous_transform_to_parent(&wheel_id_leg1);
     assert!(wheel_to_steering.is_ok());
 
     let wheel_to_steering_matrix = wheel_to_steering.unwrap();
@@ -4249,7 +4247,7 @@ fn when_getting_homogeneous_transform_to_parent_with_no_motion_it_should_return_
     assert_eq!(expected, wheel_to_steering_matrix);
 
     // steering to suspension
-    let steering_to_suspension = model.get_homogeneous_transform_to_parent(&steering_id_leg1);
+    let steering_to_suspension = model.homogeneous_transform_to_parent(&steering_id_leg1);
     assert!(steering_to_suspension.is_ok());
 
     let steering_to_suspension_matrix = steering_to_suspension.unwrap();
@@ -4271,7 +4269,7 @@ fn when_getting_homogeneous_transform_to_parent_with_no_motion_it_should_return_
     assert_eq!(expected, steering_to_suspension_matrix);
 
     // suspension to body
-    let suspension_to_body = model.get_homogeneous_transform_to_parent(&suspension_id_leg1);
+    let suspension_to_body = model.homogeneous_transform_to_parent(&suspension_id_leg1);
     assert!(suspension_to_body.is_ok());
 
     let suspension_to_body_matrix = suspension_to_body.unwrap();
@@ -4321,7 +4319,7 @@ fn when_getting_homogeneous_transform_to_parent_with_primatic_x_motion_should_re
     .unwrap();
 
     // wheel to steering
-    let actuator_to_body = model.get_homogeneous_transform_to_parent(&id);
+    let actuator_to_body = model.homogeneous_transform_to_parent(&id);
     assert!(actuator_to_body.is_ok());
 
     let actuator_to_body_matrix = actuator_to_body.unwrap();
@@ -4358,7 +4356,7 @@ fn when_getting_homogeneous_transform_to_parent_with_primatic_x_motion_should_re
     // Allow some time to ensure the task is not processed
     std::thread::sleep(Duration::from_millis(20));
 
-    let actuator_to_body = model.get_homogeneous_transform_to_parent(&id);
+    let actuator_to_body = model.homogeneous_transform_to_parent(&id);
     assert!(actuator_to_body.is_ok());
 
     let actuator_to_body_matrix = actuator_to_body.unwrap();
@@ -4395,7 +4393,7 @@ fn when_getting_homogeneous_transform_to_parent_with_primatic_x_motion_should_re
     // Allow some time to ensure the task is not processed
     std::thread::sleep(Duration::from_millis(20));
 
-    let actuator_to_body = model.get_homogeneous_transform_to_parent(&id);
+    let actuator_to_body = model.homogeneous_transform_to_parent(&id);
     assert!(actuator_to_body.is_ok());
 
     let actuator_to_body_matrix = actuator_to_body.unwrap();
@@ -4445,7 +4443,7 @@ fn when_getting_homogeneous_transform_to_parent_with_primatic_y_motion_should_re
     .unwrap();
 
     // wheel to steering
-    let actuator_to_body = model.get_homogeneous_transform_to_parent(&id);
+    let actuator_to_body = model.homogeneous_transform_to_parent(&id);
     assert!(actuator_to_body.is_ok());
 
     let actuator_to_body_matrix = actuator_to_body.unwrap();
@@ -4482,7 +4480,7 @@ fn when_getting_homogeneous_transform_to_parent_with_primatic_y_motion_should_re
     // Allow some time to ensure the task is not processed
     std::thread::sleep(Duration::from_millis(20));
 
-    let actuator_to_body = model.get_homogeneous_transform_to_parent(&id);
+    let actuator_to_body = model.homogeneous_transform_to_parent(&id);
     assert!(actuator_to_body.is_ok());
 
     let actuator_to_body_matrix = actuator_to_body.unwrap();
@@ -4519,7 +4517,7 @@ fn when_getting_homogeneous_transform_to_parent_with_primatic_y_motion_should_re
     // Allow some time to ensure the task is not processed
     std::thread::sleep(Duration::from_millis(20));
 
-    let actuator_to_body = model.get_homogeneous_transform_to_parent(&id);
+    let actuator_to_body = model.homogeneous_transform_to_parent(&id);
     assert!(actuator_to_body.is_ok());
 
     let actuator_to_body_matrix = actuator_to_body.unwrap();
@@ -4569,7 +4567,7 @@ fn when_getting_homogeneous_transform_to_parent_with_primatic_z_motion_should_re
     .unwrap();
 
     // wheel to steering
-    let actuator_to_body = model.get_homogeneous_transform_to_parent(&id);
+    let actuator_to_body = model.homogeneous_transform_to_parent(&id);
     assert!(actuator_to_body.is_ok());
 
     let actuator_to_body_matrix = actuator_to_body.unwrap();
@@ -4606,7 +4604,7 @@ fn when_getting_homogeneous_transform_to_parent_with_primatic_z_motion_should_re
     // Allow some time to ensure the task is not processed
     std::thread::sleep(Duration::from_millis(20));
 
-    let actuator_to_body = model.get_homogeneous_transform_to_parent(&id);
+    let actuator_to_body = model.homogeneous_transform_to_parent(&id);
     assert!(actuator_to_body.is_ok());
 
     let actuator_to_body_matrix = actuator_to_body.unwrap();
@@ -4643,7 +4641,7 @@ fn when_getting_homogeneous_transform_to_parent_with_primatic_z_motion_should_re
     // Allow some time to ensure the task is not processed
     std::thread::sleep(Duration::from_millis(20));
 
-    let actuator_to_body = model.get_homogeneous_transform_to_parent(&id);
+    let actuator_to_body = model.homogeneous_transform_to_parent(&id);
     assert!(actuator_to_body.is_ok());
 
     let actuator_to_body_matrix = actuator_to_body.unwrap();
@@ -4693,7 +4691,7 @@ fn when_getting_homogeneous_transform_to_parent_with_revolute_x_motion_should_re
     .unwrap();
 
     // wheel to steering
-    let actuator_to_body = model.get_homogeneous_transform_to_parent(&id);
+    let actuator_to_body = model.homogeneous_transform_to_parent(&id);
     assert!(actuator_to_body.is_ok());
 
     let actuator_to_body_matrix = actuator_to_body.unwrap();
@@ -4733,7 +4731,7 @@ fn when_getting_homogeneous_transform_to_parent_with_revolute_x_motion_should_re
     // Allow some time to ensure the task is not processed
     std::thread::sleep(Duration::from_millis(20));
 
-    let actuator_to_body = model.get_homogeneous_transform_to_parent(&id);
+    let actuator_to_body = model.homogeneous_transform_to_parent(&id);
     assert!(actuator_to_body.is_ok());
 
     let actuator_to_body_matrix = actuator_to_body.unwrap();
@@ -4791,7 +4789,7 @@ fn when_getting_homogeneous_transform_to_parent_with_revolute_x_motion_should_re
     // Allow some time to ensure the task is not processed
     std::thread::sleep(Duration::from_millis(20));
 
-    let actuator_to_body = model.get_homogeneous_transform_to_parent(&id);
+    let actuator_to_body = model.homogeneous_transform_to_parent(&id);
     assert!(actuator_to_body.is_ok());
 
     let actuator_to_body_matrix = actuator_to_body.unwrap();
@@ -4861,7 +4859,7 @@ fn when_getting_homogeneous_transform_to_parent_with_revolute_y_motion_should_re
     .unwrap();
 
     // wheel to steering
-    let actuator_to_body = model.get_homogeneous_transform_to_parent(&id);
+    let actuator_to_body = model.homogeneous_transform_to_parent(&id);
     assert!(actuator_to_body.is_ok());
 
     let actuator_to_body_matrix = actuator_to_body.unwrap();
@@ -4900,7 +4898,7 @@ fn when_getting_homogeneous_transform_to_parent_with_revolute_y_motion_should_re
     // Allow some time to ensure the task is not processed
     std::thread::sleep(Duration::from_millis(20));
 
-    let actuator_to_body = model.get_homogeneous_transform_to_parent(&id);
+    let actuator_to_body = model.homogeneous_transform_to_parent(&id);
     assert!(actuator_to_body.is_ok());
 
     let actuator_to_body_matrix = actuator_to_body.unwrap();
@@ -4959,7 +4957,7 @@ fn when_getting_homogeneous_transform_to_parent_with_revolute_y_motion_should_re
     // Allow some time to ensure the task is not processed
     std::thread::sleep(Duration::from_millis(20));
 
-    let actuator_to_body = model.get_homogeneous_transform_to_parent(&id);
+    let actuator_to_body = model.homogeneous_transform_to_parent(&id);
     assert!(actuator_to_body.is_ok());
 
     let actuator_to_body_matrix = actuator_to_body.unwrap();
@@ -5028,7 +5026,7 @@ fn when_getting_homogeneous_transform_to_parent_with_revolute_z_motion_should_re
     )
     .unwrap();
 
-    let actuator_to_body = model.get_homogeneous_transform_to_parent(&id);
+    let actuator_to_body = model.homogeneous_transform_to_parent(&id);
     assert!(actuator_to_body.is_ok());
 
     let actuator_to_body_matrix = actuator_to_body.unwrap();
@@ -5067,7 +5065,7 @@ fn when_getting_homogeneous_transform_to_parent_with_revolute_z_motion_should_re
     // Allow some time to ensure the task is not processed
     std::thread::sleep(Duration::from_millis(20));
 
-    let actuator_to_body = model.get_homogeneous_transform_to_parent(&id);
+    let actuator_to_body = model.homogeneous_transform_to_parent(&id);
     assert!(actuator_to_body.is_ok());
 
     let actuator_to_body_matrix = actuator_to_body.unwrap();
@@ -5122,7 +5120,7 @@ fn when_getting_homogeneous_transform_to_parent_with_revolute_z_motion_should_re
     // Allow some time to ensure the task is not processed
     std::thread::sleep(Duration::from_millis(20));
 
-    let actuator_to_body = model.get_homogeneous_transform_to_parent(&id);
+    let actuator_to_body = model.homogeneous_transform_to_parent(&id);
     assert!(actuator_to_body.is_ok());
 
     let actuator_to_body_matrix = actuator_to_body.unwrap();
@@ -5317,7 +5315,7 @@ fn when_getting_parent_with_invalid_frame_it_should_error() {
     let _ = add_body_to_model(&mut model).unwrap();
 
     let invalid_id = FrameID::new();
-    let result = model.get_parent(&invalid_id);
+    let result = model.parent_of(&invalid_id);
 
     assert!(result.is_err());
 }
@@ -5328,7 +5326,7 @@ fn when_getting_steering_frame_for_wheel_with_invalid_frame_it_should_error() {
     let _ = add_body_to_model(&mut model).unwrap();
 
     let invalid_id = FrameID::new();
-    let result = model.get_steering_frame_for_wheel(&invalid_id);
+    let result = model.steering_frame_for_wheel(&invalid_id);
 
     assert!(result.is_err());
 }
