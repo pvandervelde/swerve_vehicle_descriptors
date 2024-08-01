@@ -10,13 +10,13 @@ use super::joint_state::{JointState, JointStateRange};
 pub trait HardwareSensor {
     /// Returns the [Receiver] that is used to receive the current [JointState]
     /// and the currently available minimum and maximum rate of change.
-    fn get_current_state_receiver(&self) -> Result<Receiver<JointState>, Error>;
+    fn current_state_receiver(&self) -> Result<Receiver<JointState>, Error>;
 
     /// Returns the [NumberSpaceType] that is used to describe the motion of the joint.
-    fn get_joint_motion_type(&self) -> NumberSpaceType;
+    fn joint_motion_type(&self) -> NumberSpaceType;
 
     /// Returns the minimum and maximum states for the actuator.
-    fn get_joint_range(&self) -> JointStateRange;
+    fn joint_range(&self) -> JointStateRange;
 
     /// Stores the notification function for updating the software actuator
     /// and the [ChangeID] that informs the software actuator which hardware

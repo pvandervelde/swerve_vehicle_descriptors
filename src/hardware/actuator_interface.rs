@@ -32,6 +32,7 @@ mod actuator_interface_tests;
 /// The maximum value stored is assumed to be the greatest value for motion
 /// in positive direction, while the minimum value is assumed to be the greatest
 /// value for motion in the negative direction.
+#[derive(Clone, Copy, Debug)]
 pub struct ActuatorAvailableRatesOfChange {
     /// The current minimum velocity
     minimum_velocity: f64,
@@ -54,63 +55,33 @@ pub struct ActuatorAvailableRatesOfChange {
 
 impl ActuatorAvailableRatesOfChange {
     /// Returns the current maximum acceleration.
-    pub fn get_maximum_acceleration(&self) -> f64 {
+    pub fn maximum_acceleration(&self) -> f64 {
         self.maximum_acceleration
     }
 
     /// Returns the current maximum jerk.
-    pub fn get_maximum_jerk(&self) -> f64 {
+    pub fn maximum_jerk(&self) -> f64 {
         self.maximum_jerk
     }
 
     /// Returns the current maximum velocity.
-    pub fn get_maximum_velocity(&self) -> f64 {
+    pub fn maximum_velocity(&self) -> f64 {
         self.maximum_velocity
     }
 
     /// Returns the current minimum acceleration.
-    pub fn get_minimum_acceleration(&self) -> f64 {
+    pub fn minimum_acceleration(&self) -> f64 {
         self.minimum_acceleration
     }
 
     /// Returns the current minimum jerk.
-    pub fn get_minimum_jerk(&self) -> f64 {
+    pub fn minimum_jerk(&self) -> f64 {
         self.minimum_jerk
     }
 
     /// Returns the current minimum velocity.
-    pub fn get_minimum_velocity(&self) -> f64 {
+    pub fn minimum_velocity(&self) -> f64 {
         self.minimum_velocity
-    }
-
-    /// Sets the current maximum acceleration.
-    pub fn set_maximum_acceleration(&mut self, maximum_acceleration: f64) {
-        self.maximum_acceleration = maximum_acceleration;
-    }
-
-    /// Sets the current maximum jerk.
-    pub fn set_maximum_jerk(&mut self, maximum_jerk: f64) {
-        self.maximum_jerk = maximum_jerk;
-    }
-
-    /// Sets the current maximum velocity.
-    pub fn set_maximum_velocity(&mut self, maximum_velocity: f64) {
-        self.maximum_velocity = maximum_velocity;
-    }
-
-    /// Sets the current minimum acceleration.
-    pub fn set_minimum_acceleration(&mut self, minimum_acceleration: f64) {
-        self.minimum_acceleration = minimum_acceleration;
-    }
-
-    /// Sets the current minimum jerk.
-    pub fn set_minimum_jerk(&mut self, minimum_jerk: f64) {
-        self.minimum_jerk = minimum_jerk;
-    }
-
-    /// Sets the current minimum velocity.
-    pub fn set_minimum_velocity(&mut self, minimum_velocity: f64) {
-        self.minimum_velocity = minimum_velocity;
     }
 
     /// Creates a new instance of [ActuatorAvailableRatesOfChange] with the given values
@@ -132,14 +103,14 @@ impl ActuatorAvailableRatesOfChange {
     ///
     /// let result = ActuatorAvailableRatesOfChange::new(-10.0, 10.0, -5.0, 5.0, -20.0, 20.0);
     ///
-    /// assert_eq!(result.get_minimum_velocity(), -10.0);
-    /// assert_eq!(result.get_maximum_velocity(), 10.0);
+    /// assert_eq!(result.minimum_velocity(), -10.0);
+    /// assert_eq!(result.maximum_velocity(), 10.0);
     ///
-    /// assert_eq!(result.get_minimum_acceleration(), -5.0);
-    /// assert_eq!(result.get_maximum_acceleration(), 5.0);
+    /// assert_eq!(result.minimum_acceleration(), -5.0);
+    /// assert_eq!(result.maximum_acceleration(), 5.0);
     ///
-    /// assert_eq!(result.get_minimum_jerk(), -20.0);
-    /// assert_eq!(result.get_maximum_jerk(), 20.0);
+    /// assert_eq!(result.minimum_jerk(), -20.0);
+    /// assert_eq!(result.maximum_jerk(), 20.0);
     /// ```
     pub fn new(
         minimum_velocity: f64,
@@ -163,18 +134,18 @@ impl ActuatorAvailableRatesOfChange {
 /// Defines the interface for hardware that moves a robot joint element.
 pub trait HardwareActuator {
     /// Returns the [NumberSpaceType] that is used to describe the motion of the actuator.
-    fn get_actuator_motion_type(&self) -> NumberSpaceType;
+    fn actuator_motion_type(&self) -> NumberSpaceType;
 
     /// Returns the minimum and maximum states for the actuator.
-    fn get_actuator_range(&self) -> JointStateRange;
+    fn actuator_range(&self) -> JointStateRange;
 
     /// Returns the [Sender] that can be used to send command values to the
     /// actuator implementation.
-    fn get_command_sender(&self) -> Result<Sender<JointState>, Error>;
+    fn command_sender(&self) -> Result<Sender<JointState>, Error>;
 
     /// Returns the [Receiver] that is used to receive the current [JointState]
     /// and the currently available minimum and maximum rate of change.
-    fn get_current_state_receiver(
+    fn current_state_receiver(
         &self,
     ) -> Result<Receiver<(JointState, ActuatorAvailableRatesOfChange)>, Error>;
 

@@ -288,22 +288,22 @@ pub struct JointSensor {
 
 impl JointSensor {
     /// Returns the number space for the sensor
-    pub fn get_numberspace(&self) -> &dyn RealNumberValueSpace {
+    pub fn numberspace(&self) -> &dyn RealNumberValueSpace {
         self.number_space.as_ref()
     }
 
     /// Returns the sensor value at the current time.
     #[cfg_attr(test, mutants::skip)] // Cannot easily check mutations as this is a threaded lock situation
-    pub fn get_value(&self) -> Result<JointState, Error> {
+    pub fn value(&self) -> Result<JointState, Error> {
         let mut retries = 0;
         while retries < 3 {
             match self.current_state.lock() {
                 Ok(r) => {
                     return Ok(JointState::new(
-                        r.get_position(),
-                        *r.get_velocity(),
-                        *r.get_acceleration(),
-                        *r.get_jerk(),
+                        r.position(),
+                        *r.velocity(),
+                        *r.acceleration(),
+                        *r.jerk(),
                     ));
                 }
                 Err(_) => {
@@ -336,13 +336,13 @@ impl JointSensor {
         )));
         let current_state_clone = current_state.clone();
 
-        let number_space = to_number_space(sensor.get_joint_motion_type());
+        let number_space = to_number_space(sensor.joint_motion_type());
         let result = Self {
             current_state,
             number_space,
         };
 
-        let state_reciever = sensor.get_current_state_receiver()?;
+        let state_reciever = sensor.current_state_receiver()?;
         let on_notify_of_change = Box::new(move || {
             let result = state_reciever.recv();
             if result.is_err() {
@@ -439,22 +439,22 @@ pub struct Actuator {
 
 impl Actuator {
     /// Returns the number space for the actuator
-    pub fn get_numberspace(&self) -> &dyn RealNumberValueSpace {
+    pub fn numberspace(&self) -> &dyn RealNumberValueSpace {
         self.number_space.as_ref()
     }
 
     /// Gets the current joint state for the actuator
     #[cfg_attr(test, mutants::skip)] // Cannot easily check mutations as this is a threaded lock situation
-    pub fn get_value(&self) -> Result<JointState, Error> {
+    pub fn value(&self) -> Result<JointState, Error> {
         let mut retries = 0;
         while retries < 3 {
             match self.current_state.lock() {
                 Ok(r) => {
                     return Ok(JointState::new(
-                        r.state.get_position(),
-                        *r.state.get_velocity(),
-                        *r.state.get_acceleration(),
-                        *r.state.get_jerk(),
+                        r.state.position(),
+                        *r.state.velocity(),
+                        *r.state.acceleration(),
+                        *r.state.jerk(),
                     ));
                 }
                 Err(_) => {
@@ -485,15 +485,15 @@ impl Actuator {
         )));
         let current_state_clone = current_state.clone();
 
-        let number_space = to_number_space(actuator.get_actuator_motion_type());
-        let command_sender = actuator.get_command_sender()?;
+        let number_space = to_number_space(actuator.actuator_motion_type());
+        let command_sender = actuator.command_sender()?;
         let result = Self {
             current_state,
             number_space,
             command_sender,
         };
 
-        let state_reciever = actuator.get_current_state_receiver()?;
+        let state_reciever = actuator.current_state_receiver()?;
         let on_notify_of_change = Box::new(move || {
             let result = state_reciever.recv();
             if result.is_err() {
@@ -542,7 +542,7 @@ impl Actuator {
     /// A result indicating if the setting of the new desired state was
     /// successful or not.
     ///
-    pub fn set_value(&self, new_state: JointState) -> Result<(), Error> {
+    pub fn update_state(&self, new_state: JointState) -> Result<(), Error> {
         // Until https://github.com/rust-lang/rust/issues/99301 is fixed we can't send an error type
         // with generics (i.e. SendError<JointState>) into a thiserror source / backtrace error translator
         self.command_sender

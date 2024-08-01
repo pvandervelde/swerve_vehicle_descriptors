@@ -134,11 +134,11 @@ struct MockHardwareSensor {
 }
 
 impl HardwareSensor for MockHardwareSensor {
-    fn get_joint_motion_type(&self) -> NumberSpaceType {
+    fn joint_motion_type(&self) -> NumberSpaceType {
         NumberSpaceType::LinearUnlimited
     }
 
-    fn get_current_state_receiver(&self) -> Result<Receiver<JointState>, Error> {
+    fn current_state_receiver(&self) -> Result<Receiver<JointState>, Error> {
         Ok(self.receiver.clone())
     }
 
@@ -147,7 +147,7 @@ impl HardwareSensor for MockHardwareSensor {
         self.update_sender = Some(sender);
     }
 
-    fn get_joint_range(&self) -> crate::hardware::joint_state::JointStateRange {
+    fn joint_range(&self) -> crate::hardware::joint_state::JointStateRange {
         todo!()
     }
 }
@@ -161,17 +161,17 @@ struct MockHardwareActuator {
 }
 
 impl HardwareActuator for MockHardwareActuator {
-    fn get_actuator_motion_type(&self) -> NumberSpaceType {
+    fn actuator_motion_type(&self) -> NumberSpaceType {
         NumberSpaceType::LinearUnlimited
     }
 
-    fn get_current_state_receiver(
+    fn current_state_receiver(
         &self,
     ) -> Result<Receiver<(JointState, ActuatorAvailableRatesOfChange)>, Error> {
         Ok(self.receiver.clone())
     }
 
-    fn get_command_sender(&self) -> Result<Sender<JointState>, Error> {
+    fn command_sender(&self) -> Result<Sender<JointState>, Error> {
         Ok(self.command_sender.clone())
     }
 
@@ -180,7 +180,7 @@ impl HardwareActuator for MockHardwareActuator {
         self.update_sender = Some(sender);
     }
 
-    fn get_actuator_range(&self) -> crate::hardware::joint_state::JointStateRange {
+    fn actuator_range(&self) -> crate::hardware::joint_state::JointStateRange {
         todo!()
     }
 }
@@ -223,7 +223,7 @@ fn test_joint_sensor_get_value() {
     // Allow some time to ensure the task is not processed
     std::thread::sleep(Duration::from_millis(20));
 
-    let result = sensor.get_value();
+    let result = sensor.value();
     assert!(result.is_ok());
     assert_eq!(result.unwrap(), state);
 }
@@ -274,7 +274,7 @@ fn test_actuator_get_value() {
     // Allow some time to ensure the task is not processed
     std::thread::sleep(Duration::from_millis(20));
 
-    let result = actuator.get_value();
+    let result = actuator.value();
     assert!(result.is_ok());
     assert_eq!(result.unwrap(), state);
 }
@@ -294,7 +294,7 @@ fn test_actuator_set_value() {
 
     let actuator_instance = Actuator::new(&mut actuator, &change_processor).unwrap();
     let state = JointState::new(2.0, Some(2.0), Some(2.0), Some(2.0));
-    let result = actuator_instance.set_value(state.clone());
+    let result = actuator_instance.update_state(state.clone());
     assert!(result.is_ok());
 
     let cmd_result = cmd_receiver.recv();

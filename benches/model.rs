@@ -34,22 +34,22 @@ criterion_main!(benches);
 
 pub fn motion_model_get_children(c: &mut Criterion) {
     let model = create_model_and_fill();
-    let wheel_ids = model.get_wheels().unwrap();
+    let wheel_ids = model.wheels().unwrap();
 
     c.bench_function("MotionModel::get_children", |b| {
-        b.iter(|| model.get_children(black_box(wheel_ids.first().unwrap())));
+        b.iter(|| model.children_of(black_box(wheel_ids.first().unwrap())));
     });
 }
 
 pub fn motion_model_get_homogeneous_transform_between_frames(c: &mut Criterion) {
     let model = create_model_and_fill();
-    let wheel_ids = model.get_wheels().unwrap();
+    let wheel_ids = model.wheels().unwrap();
 
     c.bench_function(
         "MotionModel::get_homogeneous_transform_between_frames",
         |b| {
             b.iter(|| {
-                model.get_homogeneous_transform_between_frames(
+                model.homogeneous_transform_between_frames(
                     black_box(wheel_ids.first().unwrap()),
                     black_box(wheel_ids.get(1).unwrap()),
                 )
@@ -60,12 +60,12 @@ pub fn motion_model_get_homogeneous_transform_between_frames(c: &mut Criterion) 
 
 pub fn motion_model_get_homogeneous_transform_to_ancestor(c: &mut Criterion) {
     let model = create_model_and_fill();
-    let wheel_ids = model.get_wheels().unwrap();
-    let body_id = model.get_body().unwrap();
+    let wheel_ids = model.wheels().unwrap();
+    let body_id = model.body().unwrap();
 
     c.bench_function("MotionModel::get_homogeneous_transform_to_ancestor", |b| {
         b.iter(|| {
-            model.get_homogeneous_transform_to_ancestor(
+            model.homogeneous_transform_to_ancestor(
                 black_box(wheel_ids.first().unwrap()),
                 black_box(body_id),
             )
@@ -75,34 +75,34 @@ pub fn motion_model_get_homogeneous_transform_to_ancestor(c: &mut Criterion) {
 
 pub fn motion_model_get_homogeneous_transform_to_body(c: &mut Criterion) {
     let model = create_model_and_fill();
-    let wheel_ids = model.get_wheels().unwrap();
+    let wheel_ids = model.wheels().unwrap();
 
     c.bench_function("MotionModel::get_homogeneous_transform_to_body", |b| {
-        b.iter(|| model.get_homogeneous_transform_to_body(black_box(wheel_ids.first().unwrap())));
+        b.iter(|| model.homogeneous_transform_to_body(black_box(wheel_ids.first().unwrap())));
     });
 }
 
 pub fn motion_model_get_homogeneous_transform_to_parent(c: &mut Criterion) {
     let model = create_model_and_fill();
-    let wheel_ids = model.get_wheels().unwrap();
+    let wheel_ids = model.wheels().unwrap();
 
     c.bench_function("MotionModel::get_homogeneous_transform_to_parent", |b| {
-        b.iter(|| model.get_homogeneous_transform_to_parent(black_box(wheel_ids.first().unwrap())));
+        b.iter(|| model.homogeneous_transform_to_parent(black_box(wheel_ids.first().unwrap())));
     });
 }
 
 pub fn motion_model_get_steering_frame_for_wheel(c: &mut Criterion) {
     let model = create_model_and_fill();
-    let wheel_ids = model.get_wheels().unwrap();
+    let wheel_ids = model.wheels().unwrap();
 
     c.bench_function("MotionModel::get_steering_frame_for_wheel", |b| {
-        b.iter(|| model.get_steering_frame_for_wheel(black_box(wheel_ids.first().unwrap())));
+        b.iter(|| model.steering_frame_for_wheel(black_box(wheel_ids.first().unwrap())));
     });
 }
 
 pub fn motion_model_is_ancestor(c: &mut Criterion) {
     let model = create_model_and_fill();
-    let wheel_ids = model.get_wheels().unwrap();
+    let wheel_ids = model.wheels().unwrap();
 
     c.bench_function("MotionModel::is_ancestor", |b| {
         b.iter(|| {
@@ -223,17 +223,17 @@ struct MockHardwareActuator {
 }
 
 impl HardwareActuator for MockHardwareActuator {
-    fn get_actuator_motion_type(&self) -> NumberSpaceType {
+    fn actuator_motion_type(&self) -> NumberSpaceType {
         NumberSpaceType::LinearUnlimited
     }
 
-    fn get_current_state_receiver(
+    fn current_state_receiver(
         &self,
     ) -> Result<Receiver<(JointState, ActuatorAvailableRatesOfChange)>, Error> {
         Ok(self.receiver.clone())
     }
 
-    fn get_command_sender(&self) -> Result<Sender<JointState>, Error> {
+    fn command_sender(&self) -> Result<Sender<JointState>, Error> {
         Ok(self.command_sender.clone())
     }
 
@@ -242,7 +242,7 @@ impl HardwareActuator for MockHardwareActuator {
         self.update_sender = Some(sender);
     }
 
-    fn get_actuator_range(&self) -> JointStateRange {
+    fn actuator_range(&self) -> JointStateRange {
         todo!()
     }
 }

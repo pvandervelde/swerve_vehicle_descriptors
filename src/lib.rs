@@ -73,17 +73,17 @@
 //! }
 //!
 //! impl HardwareActuator for MockHardwareActuator {
-//!     fn get_actuator_motion_type(&self) -> NumberSpaceType {
+//!     fn actuator_motion_type(&self) -> NumberSpaceType {
 //!         NumberSpaceType::LinearUnlimited
 //!     }
 //!
-//!     fn get_current_state_receiver(
+//!     fn current_state_receiver(
 //!         &self,
 //!     ) -> Result<Receiver<(JointState, ActuatorAvailableRatesOfChange)>, Error> {
 //!         Ok(self.receiver.clone())
 //!     }
 //!
-//!     fn get_command_sender(&self) -> Result<Sender<JointState>, Error> {
+//!     fn command_sender(&self) -> Result<Sender<JointState>, Error> {
 //!         Ok(self.command_sender.clone())
 //!     }
 //!
@@ -92,7 +92,7 @@
 //!         self.update_sender = Some(sender);
 //!     }
 //!
-//!     fn get_actuator_range(&self) -> JointStateRange {
+//!     fn actuator_range(&self) -> JointStateRange {
 //!         todo!()
 //!     }
 //! }
@@ -320,15 +320,15 @@
 //! }
 //!
 //! impl HardwareSensor for MySensor {
-//!     fn get_current_state_receiver(&self) -> Result<Receiver<JointState>, Error> {
+//!     fn current_state_receiver(&self) -> Result<Receiver<JointState>, Error> {
 //!         Ok(self.receiver.clone())
 //!     }
 //!
-//!     fn get_joint_motion_type(&self) -> NumberSpaceType {
+//!     fn joint_motion_type(&self) -> NumberSpaceType {
 //!          NumberSpaceType::LinearUnlimited
 //!     }
 //!
-//!     fn get_joint_range(&self) -> JointStateRange {
+//!     fn joint_range(&self) -> JointStateRange {
 //!         // This could be a constant value, or a value depending on the current position
 //!         // of the joint
 //!         let minimum = JointState::new(
@@ -428,11 +428,11 @@
 //! }
 //!
 //! impl HardwareActuator for MyActuator {
-//!     fn get_actuator_motion_type(&self) -> NumberSpaceType {
+//!     fn actuator_motion_type(&self) -> NumberSpaceType {
 //!          NumberSpaceType::LinearUnlimited
 //!     }
 //!
-//!     fn get_actuator_range(&self) -> JointStateRange {
+//!     fn actuator_range(&self) -> JointStateRange {
 //!         // This could be a constant value, or a value depending on the current position
 //!         // of the joint
 //!         let minimum = JointState::new(
@@ -451,11 +451,11 @@
 //!         JointStateRange::new(minimum, maximum)
 //!     }
 //!
-//!     fn get_command_sender(&self) -> Result<Sender<JointState>, Error> {
+//!     fn command_sender(&self) -> Result<Sender<JointState>, Error> {
 //!         Ok(self.command_sender.clone())
 //!     }
 //!
-//!     fn get_current_state_receiver(&self) -> Result<Receiver<(JointState, ActuatorAvailableRatesOfChange)>, Error> {
+//!     fn current_state_receiver(&self) -> Result<Receiver<(JointState, ActuatorAvailableRatesOfChange)>, Error> {
 //!         Ok(self.receiver.clone())
 //!     }
 //!
