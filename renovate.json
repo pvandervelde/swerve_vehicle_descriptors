@@ -2,5 +2,16 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:best-practices"
+  ],
+  "packageRules": [
+    {
+      "matchPackageNames": [
+        "taiki-e/install-action"
+      ],
+      "groupName": "install-action",
+      "schedule": [
+        "on the first day of the month"
+      ]
+    }
   ]
 }
