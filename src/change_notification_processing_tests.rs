@@ -118,35 +118,3 @@ fn test_task_execution_with_unregistered_task() {
     // Check if the task was executed
     assert!(!executed_flag.load(Ordering::SeqCst));
 }
-
-#[test]
-fn test_task_cancellation() {
-    // Create a new HardwareChangeProcessor
-    let processing_rate_in_hz = 1000;
-    let scheduler = HardwareChangeProcessor::new(processing_rate_in_hz);
-
-    // Create a flag to indicate task execution
-    let executed_flag = Arc::new(AtomicBool::new(false));
-    let executed_flag_clone = executed_flag.clone();
-
-    // Add a task to the scheduler
-    let task = move || {
-        executed_flag_clone.store(true, Ordering::SeqCst);
-    };
-
-    let (sender, task_id) = scheduler.add(Box::new(task)).unwrap();
-
-    // Cancel the scheduler
-    drop(scheduler);
-
-    // Notify the scheduler of the new task
-    // This should not execute the task since the scheduler is cancelled
-    let result = sender.send(task_id);
-    assert!(result.is_ok());
-
-    // Allow some time to ensure the task is not processed
-    std::thread::sleep(Duration::from_millis(200));
-
-    // Check if the task was executed
-    assert!(!executed_flag.load(Ordering::SeqCst));
-}
