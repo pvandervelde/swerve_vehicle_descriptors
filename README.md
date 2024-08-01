@@ -1,6 +1,6 @@
 # Swerve vehicle descriptors
 
-[![Crates.io][https://img.shields.io/crates/v/swerve_vehicle_descriptors.svg]][https://crates.io/crates/swerve_vehicle_descriptors]
+[![Crates.io](https://img.shields.io/crates/v/swerve_vehicle_descriptors.svg)](https://crates.io/crates/swerve_vehicle_descriptors)
 ![Crates.io MSRV (version)](https://img.shields.io/crates/msrv/swerve_vehicle_descriptors/0.1.0)
 [![Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.sv)](https://opensource.org/licenses/Apache-2.0)
 
