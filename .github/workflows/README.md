@@ -12,3 +12,4 @@ This directory contains the workflow scripts for the 'swerve_vehicle_descriptors
   on the source code.
 - [release-plz](release-plz.yml): This workflow runs [release-plz](https://release-plz.ieni.dev/) to create a release
   PR and subsequently release the package to [crates.io](https://crates.io/).
+- [to_kanban](to_kanban.yml): This workflow moves issues and PRs into the kanban project.
