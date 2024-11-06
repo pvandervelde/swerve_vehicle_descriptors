@@ -19,7 +19,7 @@ crossbeam-channel = "0.5.13"
 float-cmp = "0.10.0"
 mutants = "0.0.3"
 nalgebra = "0.33.0"
-thiserror = "1.0.61"
+thiserror = "2.0.0"
 
 [dev-dependencies]
 criterion = { version = "0.5.1", features = ["csv_output", "html_reports"] }
