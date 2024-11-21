@@ -20,7 +20,7 @@ jobs:
         run: rustup update stable
 
       - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@d2347103f7c028229cc9c9c440e90b572dd50592 # v2
+        uses: taiki-e/install-action@ca079cf07333ec512098b9e3b6d1f1755593ee73 # v2
         with:
           tool: cargo-llvm-cov@0.6.10
 
