@@ -18,7 +18,7 @@ version = "0.1.0"
 crossbeam-channel = "0.5.13"
 float-cmp = "0.10.0"
 mutants = "0.0.3"
-nalgebra = "0.33.0"
+nalgebra = "0.34.0"
 thiserror = "2.0.0"
 
 [dev-dependencies]
